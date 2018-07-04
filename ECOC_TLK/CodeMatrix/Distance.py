@@ -31,7 +31,7 @@ def euclidean_distance(x, y, weights=None):
     :param weights: the weights for each feature
     :return: euclidean distance
     """
-    # assert len(x) == len(y)
+    assert len(x) == len(y)
     if weights is None:
         weights = np.ones(len(x))
     temp_x = copy.deepcopy(x)
