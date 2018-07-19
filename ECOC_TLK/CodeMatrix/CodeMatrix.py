@@ -279,7 +279,8 @@ def ecoc_one(train_X, train_y, valid_X, valid_y, estimator):
             if validation_d.shape[0] > 0 and validation_d.shape[1] > 0:
                 score = est.score(validation_d, validation_c)
             else:
-                score = 0.8
+                score = 0.
+            # print(score)
             if score >= score_result:
                 score_result = score
                 est_result = est

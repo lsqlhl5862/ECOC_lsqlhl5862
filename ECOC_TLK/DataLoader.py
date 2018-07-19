@@ -113,7 +113,7 @@ def labelChecker(trainX,trainStrY,testX,testStrY):
         print(useless_label)
         print("Data about labels above have been removed from testing data.")
     
-    if len(train_label_unique)==len(useful_label_unique) and len(test_label_unique)==len(useful_label_unique):
-        print("No error in training data and testing data.")
+    if not(len(train_label_unique)==len(useful_label_unique) and len(test_label_unique)==len(useful_label_unique)):
+        print("One or more errors in training data and testing data.")
     return trainX,trainStrY,testX,testStrY
 

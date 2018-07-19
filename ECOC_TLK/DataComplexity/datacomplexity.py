@@ -119,10 +119,15 @@ class DCF1(DataComplexity):
     """
     def _score(self, X, y):
         v = np.array([self.fi_score_value(X[y == 1, i], X[y == -1, i]) for i in range(X.shape[1])])
+        # print(v.max())
         return 1 / v.max()
 
     def fi_score_value(self, c1, c2):
-        return (c1.mean() - c2.mean()) ** 2 / (c1.var() + c2.var())
+        # print([c1.mean() - c2.mean(),c1.var() + c2.var()])
+        if (c1.mean() - c2.mean()) ** 2==(c1.var() + c2.var()):
+            return 1
+        else:
+            return (c1.mean() - c2.mean()) ** 2 / (c1.var() + c2.var())
     
 
 class DCF2(DataComplexity):
@@ -133,12 +138,16 @@ class DCF2(DataComplexity):
     """
     def _score(self, X, y):
         v = np.array([self.fi_score_value(X[y == 1, i], X[y == -1, i]) for i in range(X.shape[1])])
+        # print(v.mean())
         return v.mean()
 
     def fi_score_value(self, c1, c2):
         a_min, a_max = np.array([c1.min(), c2.min()]), np.array([c1.max(), c2.max()])
         min_max, max_min, max_max, min_min = a_min.max(), a_max.min(), a_max.max(), a_min.min()
-        if min_max <= max_min:
+        # print([max_min,min_max,max_max,min_min])
+        if (max_min - min_max)==(max_max - min_min):
+            return 1
+        elif min_max <= max_min:
             return (max_min - min_max) / (max_max - min_min)
         else:  # no overlap
             return 0
