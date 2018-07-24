@@ -208,14 +208,14 @@ def getDataComplexity(CodeMatrix, trainX, trainY):
         temp = []
         dc = get_data_complexity('F1')
         temp.append(round(dc.score(X, y), 4))
-        dc = get_data_complexity('F2')
-        temp.append(round(dc.score(X, y),4))
+        # dc = get_data_complexity('F2')
+        # temp.append(round(dc.score(X, y),4))
         dc = get_data_complexity('F3')
         temp.append(round(dc.score(X, y),4))
         # dc = get_data_complexity('N1')
         # temp.append(round(dc.score(X, y),4))
-        dc = get_data_complexity('N2')
-        temp.append(round(dc.score(X, y), 4))
+        # dc = get_data_complexity('N2')
+        # temp.append(round(dc.score(X, y), 4))
         dc = get_data_complexity('N3')
         temp.append(round(dc.score(X, y), 4))
         result.append(temp)
@@ -274,9 +274,11 @@ def updateCodeMatrix(codeMatrix, DCArray, trainX, trainY):
     return numpy.array(resultCodeMatrix).transpose()
 
 
-def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY):
+def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY,DCArray):
+    print(dataName+"_"+encoding+": ")
     #下降阈值
-    delta=0.08
+    delta=0.01
+    length=len(numpy.unique(trainY))
     if(encoding != 'ecoc_one'):
         codeMatrix = getattr(CodeMatrix.CodeMatrix,
                              encoding)(trainX, trainY)[0]
@@ -284,21 +286,19 @@ def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY):
     validationX, validationY, X, Y, instanceNum = dl.loadDataset(
         'data_uci/'+dataName+'_validation.data', 'data_uci/'+dataName+'_validation.data')
     y = []
-    scoreResult, stdScore = getColScore(
-        codeMatrix, trainX, trainY, validationX, validationY)
-    # 通过ovo矩阵获得类的一对一测度
-    ovoCodeMatrix = getattr(CodeMatrix.CodeMatrix,
-                            "ovo")(trainX, trainY)[0]
-    result = getDataComplexity(ovoCodeMatrix, trainX, trainY)
-    length=len(numpy.unique(trainY))
-    DCArray = getDCArray(result, length)
+    estimator = get_base_clf('SVM')  # get SVM classifier object.
+    sec = SimpleECOCClassifier(estimator, codeMatrix)
+    sec.fit(trainX, trainY)
+    pred = sec.predict(testX)
+    stdScore = round(metrics.accuracy_score(testY, pred), 4)
+    
     # 获得原矩阵F3测度
     resultF3=[]
     resultN3=[]
     result=getDataComplexity(codeMatrix, trainX, trainY)
     # 0:F1 1:F2 2:F3 3:N2 4:N3
-    resultF3 = result.transpose()[2].tolist()
-    resultN3 = result.transpose()[4].tolist()
+    resultF3 = result.transpose()[1].tolist()
+    resultN3 = result.transpose()[2].tolist()
 
     deleteList=[]
     currentScore=stdScore
@@ -413,19 +413,25 @@ def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY):
 
 def getAllAccuracy(dataName):
     scoreList = []
-    # encodingList = ("ovo", "ova", "dense_rand",
-    #                 "sparse_rand", "decoc", "agg_ecoc", "ecoc_one")
-    encodingList = ("ovo",)
+    encodingList = ("ovo", "ova", "dense_rand",
+                    "sparse_rand", "decoc", "agg_ecoc")
+    # encodingList = ("ovo",)
     trainX, trainY, testX, testY, instanceNum = dl.loadDataset(
         'data_uci/'+dataName+'_train.data', 'data_uci/'+dataName+'_test.data')
     validationX, validationY, X, Y, instanceNum = dl.loadDataset(
         'data_uci/'+dataName+'_validation.data', 'data_uci/'+dataName+'_validation.data')
-    index = 0
+    # 通过ovo矩阵获得类的一对一测度
+    ovoCodeMatrix = getattr(CodeMatrix.CodeMatrix,
+                            "ovo")(trainX, trainY)[0]
+    result = getDataComplexity(ovoCodeMatrix, trainX, trainY)
+    length=len(numpy.unique(trainY))
+    DCArray = getDCArray(result, length)
 
+    index = 0
     for item in encodingList:
         index += 1
         score, codeMatrix = getAccuracyByEncoding(
-            dataName, item, trainX, trainY, testX, testY)
+            dataName, item, trainX, trainY, testX, testY,DCArray)
         scoreList.append(score)
         # print(item+":"+str(score))
         # result=getDataComplexity(codeMatrix,trainX,trainY)
@@ -463,9 +469,10 @@ def getAllAccuracy(dataName):
 # dataList=("mfeatmor",)
 dataList = ("glass","dermatology", "mfeatmor",
             "mfeatpix", "mfeatzer", "optdigits", "sat", "yeast")
+# dataList=("mfeatpix",)
 index = 0
 for item in dataList:
-    print(item)
+    # print(item)
     index += 1
     # plt.subplot((len(dataList)*2-1)*100+10+index*2-1)
     # print(numpy.zeros(5).tolist())
