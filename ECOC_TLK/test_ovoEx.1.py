@@ -367,7 +367,7 @@ def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY,DCArr
         targetList=[]
         target=item.index(min(item))
         targetList.append(target)
-        targetList.append(DClist[target].index(max(DClist[target])))
+        targetList.append(item.index(max(item)))
         # print(item)
         # print(target)
         # print(DClist[target])

@@ -325,7 +325,6 @@ def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY,DCArr
     # print(deleteList)
 
     #F3裁剪
-    tempScore=currentScore
     temp=resultF3
     k=max(temp)
     print("shrinking by "+"F3")

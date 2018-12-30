@@ -208,8 +208,8 @@ def getDataComplexity(CodeMatrix, trainX, trainY):
         temp = []
         dc = get_data_complexity('F1')
         temp.append(round(dc.score(X, y), 4))
-        # dc = get_data_complexity('F2')
-        # temp.append(round(dc.score(X, y),4))
+        dc = get_data_complexity('F2')
+        temp.append(round(dc.score(X, y),4))
         dc = get_data_complexity('F3')
         temp.append(round(dc.score(X, y),4))
         # dc = get_data_complexity('N1')
@@ -219,7 +219,7 @@ def getDataComplexity(CodeMatrix, trainX, trainY):
         dc = get_data_complexity('N3')
         temp.append(round(dc.score(X, y), 4))
         result.append(temp)
-    return numpy.array(result)
+    return numpy.array(result).transpose()
 
 
 def getMedian(data):
@@ -276,155 +276,30 @@ def updateCodeMatrix(codeMatrix, DCArray, trainX, trainY):
 
 def getAccuracyByEncoding(dataName, encoding, trainX, trainY, testX, testY,DCArray,validationX,validationY):
     print(dataName+"_"+encoding+": ")
-    #下降阈值
-    delta=0.01
-    length=len(numpy.unique(trainY))
     if(encoding != 'ecoc_one'):
         codeMatrix = getattr(CodeMatrix.CodeMatrix,
                              encoding)(trainX, trainY)[0]
     
-    y = []
     estimator = get_base_clf('SVM')  # get SVM classifier object.
     sec = SimpleECOCClassifier(estimator, codeMatrix)
     sec.fit(trainX, trainY)
     pred = sec.predict(testX)
     stdScore = round(metrics.accuracy_score(testY, pred), 4)
     
-    # 获得原矩阵F3测度
-    resultF3=[]
-    resultN3=[]
-    result=getDataComplexity(codeMatrix, trainX, trainY)
-    # 0:F1 1:F2 2:F3 3:N2 4:N3
-    resultF3 = result.transpose()[1].tolist()
-    resultN3 = result.transpose()[2].tolist()
-
-    deleteList=[]
-    currentScore=stdScore
-    tempScore=currentScore
-
-    #N3纠错
-    temp=resultN3
-    k=max(temp)
-    tempScore=currentScore
-    print("shrinking by "+"N3")
-    while ((currentScore-tempScore)/currentScore)<delta and min(temp)<=0.5:
-        currentScore=tempScore
-        index=temp.index(min(temp))
-        # print(index)
-        temp[index]=k
-        deleteList.append(index)
-        tempCodeMatrix=numpy.delete(codeMatrix,deleteList,axis=1)
-        estimator = get_base_clf('SVM')  # get SVM classifier object.
-        sec = SimpleECOCClassifier(estimator, tempCodeMatrix)
-        sec.fit(trainX, trainY)
-        pred = sec.predict(validationX)
-        tempScore = round(metrics.accuracy_score(validationY, pred), 4)
-        # print(tempScore)
-    if ((currentScore-tempScore)/currentScore)>=delta :
-        deleteList.pop()
-    # print(deleteList)
-
-    #F3裁剪
-    tempScore=currentScore
-    temp=resultF3
-    k=max(temp)
-    print("shrinking by "+"F3")
-    while ((currentScore-tempScore)/currentScore)<delta:
-        currentScore=tempScore
-        index=temp.index(min(temp))
-        # print(index)
-        temp[index]=k
-        deleteList.append(index)
-        tempCodeMatrix=numpy.delete(codeMatrix,deleteList,axis=1)
-        estimator = get_base_clf('SVM')  # get SVM classifier object.
-        sec = SimpleECOCClassifier(estimator, tempCodeMatrix)
-        sec.fit(trainX, trainY)
-        pred = sec.predict(validationX)
-        tempScore = round(metrics.accuracy_score(validationY, pred), 4)
-        # print(tempScore)
-
-    deleteList.pop()
-    print(len(deleteList))
-    print(deleteList)
-    tempCodeMatrix=numpy.delete(codeMatrix,deleteList,axis=1).transpose().tolist()
-    
-    estimator = get_base_clf('SVM')  # get SVM classifier object.
-    sec = SimpleECOCClassifier(estimator, numpy.delete(codeMatrix,deleteList,axis=1))
-    sec.fit(trainX, trainY)
-    pred = sec.predict(testX)
-    tempScore = round(metrics.accuracy_score(testY, pred), 4)
-    print("thinned："+str(tempScore))
-
-    #F1扩充
-    DClist=[]
-    for item in DCArray:
-        DClist.append(numpy.array(item).transpose()[0].tolist())
-    index=-1
-    for item in DClist:
-        index+=1
-        item[index]=(max(item)+min(item))/2
-        newCol=[]
-        targetList=[]
-        target=item.index(min(item))
-        targetList.append(target)
-        targetList.append(DClist[target].index(max(DClist[target])))
-        # print(item)
-        # print(target)
-        # print(DClist[target])
-        for i in range(0,length):
-            if i==index:
-                newCol.append(1)
-            elif i in targetList:
-                newCol.append(-1)
-            else:
-                newCol.append(0)
-        tempCodeMatrix.append(newCol)
-    #生成新矩阵
-    newCodeMatrix=numpy.array(tempCodeMatrix).transpose()
-    
-    #结果预测
-    estimator = get_base_clf('SVM')  # get SVM classifier object.
-    sec = SimpleECOCClassifier(estimator, newCodeMatrix)
-    sec.fit(trainX, trainY)
-    pred = sec.predict(testX)
-    tempScore = round(metrics.accuracy_score(testY, pred), 4)
-    print("new："+str(tempScore))
-
-    estimator = get_base_clf('SVM')  # get SVM classifier object.
-    sec = SimpleECOCClassifier(estimator, codeMatrix)
-    sec.fit(trainX, trainY)
-    pred = sec.predict(testX)
-    tempScore = round(metrics.accuracy_score(testY, pred), 4)
-    print("old："+str(tempScore))
-    
-    # tempCodeMatrix=numpy.delete(codeMatrix,deleteList,axis=1)
-    
-    # codeMatrixResult = updateCodeMatrix(codeMatrix, DCArray, trainX, trainY)
-    # temp = codeMatrixResult.transpose().tolist()
-    # codeMatrixResult = numpy.array(temp).transpose()
-    # y, stdScore2 = getColScore(
-    #     codeMatrixResult, trainX, trainY, validationX, validationY)
-    # # for item in y:
-    # #     print(item)
-    # print(stdScore-stdScore2)
     return stdScore, codeMatrix
 
 
 def getAllAccuracy(dataName):
     scoreList = []
-    encodingList = ("ovo", "ova", "dense_rand",
-                    "sparse_rand", "decoc", "agg_ecoc")
+    # encodingList = ("ovo", "ova", "dense_rand",
+    #                 "sparse_rand", "decoc", "agg_ecoc")
+    encodingList = ("ovo", "ova", "decoc")                
     # encodingList = ("ovo",)
     trainX, trainY, testX, testY, instanceNum = dl.loadDataset(
         'data_uci/'+dataName+'_train.data', 'data_uci/'+dataName+'_test.data')
     validationX, validationY, X, Y, instanceNum = dl.loadDataset(
         'data_uci/'+dataName+'_validation.data', 'data_uci/'+dataName+'_validation.data')
-    # 通过ovo矩阵获得类的一对一测度
-    ovoCodeMatrix = getattr(CodeMatrix.CodeMatrix,
-                            "ovo")(trainX, trainY)[0]
-    result = getDataComplexity(ovoCodeMatrix, trainX, trainY)
-    length=len(numpy.unique(trainY))
-    DCArray = getDCArray(result, length)
+    DCArray = []
 
     index = 0
     for item in encodingList:
@@ -432,30 +307,34 @@ def getAllAccuracy(dataName):
         score, codeMatrix = getAccuracyByEncoding(
             dataName, item, trainX, trainY, testX, testY,DCArray,validationX,validationY)
         scoreList.append(score)
-        # print(item+":"+str(score))
+        print(item+":"+str(score))
+        result,score=getColScore(
+        codeMatrix, trainX, trainY, validationX, validationY)
+        for i in result:
+            print(i)
         # result=getDataComplexity(codeMatrix,trainX,trainY)
         # # print(codeMatrix)
         # x=[]
         # y=[]
         # for row in codeMatrix.transpose():
         #     y.append(getScoreOfCol(row,trainX,trainY,validationX,validationY,get_base_clf('SVM')))
-        # print(y)
         # plt.figure()
-        # plt.plot(range(0,len(y),1),result[0],"--",label="N3")
-        # # plt.plot(range(0,len(y),1),result[1],"--",label="N3")
+        # plt.plot(range(0,len(y),1),result[0],"--",label="F1")
+        # plt.plot(range(0,len(y),1),result[1],"--",label="F2")
+        # plt.plot(range(0,len(y),1),result[2],"--",label="F3")
         # # plt.plot(range(0,len(y),1),result[3],"--",label="N1")
         # # plt.plot(range(0,len(y),1),result[4],"--",label="N2")
-        # # plt.plot(range(0,len(y),1),result[5],"--",label="N3")
+        # plt.plot(range(0,len(y),1),result[3],"--",label="N3")
         # plt.plot(range(0,len(y),1),y,"+-",label="Score")
-        # plt.xticks(fontsize=15)
+        # plt.xticks(range(0,len(y),1),fontsize=15)
         # plt.yticks(fontsize=15)
         # plt.xlabel("Col", fontsize=20)
         # plt.ylabel("Score", fontsize=20)
         # plt.ylim(0, 1)
         # plt.title(dataName+"_"+item+" score:"+str(score),fontsize=25)
         # plt.legend(bbox_to_anchor=(1.0, 1), loc=1, borderaxespad=0.)
-        # plt.savefig("pictures/"+dataName+"_"+item+"_N.png")
-        # plt.show()
+        # plt.savefig("pictures/test1_"+dataName+"_"+item+".png")
+        # # plt.show()
 
     # for a, b in zip(encodingList, scoreList):
     #     plt.text(a, b, b, ha='center', va='bottom', fontsize=15)
@@ -468,7 +347,7 @@ def getAllAccuracy(dataName):
 # dataList=("mfeatmor",)
 # dataList = ("glass","dermatology", "mfeatmor",
 #             "mfeatpix", "mfeatzer", "optdigits", "sat", "yeast")
-dataList=("glass",)
+dataList = ("dermatology",)
 index = 0
 for item in dataList:
     # print(item)
