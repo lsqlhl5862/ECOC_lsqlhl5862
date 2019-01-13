@@ -169,7 +169,7 @@ class RandPLECOC(BasePLECOC):
         codingLength=self.codingLength
         self.accuracyList=[]
         # 测试前10列
-        for i in range(1):
+        for i in range(20):
             tr_pos_idx=self.tr_pos_idx
             tr_neg_idx=self.tr_neg_idx
             self.coding_matrix=coding_matrix
@@ -188,14 +188,14 @@ class RandPLECOC(BasePLECOC):
         # 比较前10列
         posCol=[]
         negCol=[]
-        for i in range(1):
-            if self.accuracyList[i]-pre_accuracy>=0:
+        for i in range(20):
+            if self.accuracyList[i]-pre_accuracy<=0:
                 posCol.append(i)
             else:
                 negCol.append(i)
         print("积极列：")
         for item in posCol:
-            print(str(self.accuracyList[item]-pre_accuracy)+" "+self.complexity[item])
+            print(str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
         print("消极列：")
         for item in negCol:
-            print(str(self.accuracyList[item]-pre_accuracy)+" "+self.complexity[item])
+            print(str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
