@@ -188,7 +188,7 @@ class RandPLECOC(BasePLECOC):
         # 比较前10列
         posCol=[]
         negCol=[]
-        for i in range(10):
+        for i in range(1):
             if self.accuracyList[i]-pre_accuracy>=0:
                 posCol.append(i)
             else:
@@ -196,7 +196,6 @@ class RandPLECOC(BasePLECOC):
         print("积极列：")
         for item in posCol:
             print(str(self.accuracyList[item]-pre_accuracy)+" "+self.complexity[item])
-        
         print("消极列：")
         for item in negCol:
             print(str(self.accuracyList[item]-pre_accuracy)+" "+self.complexity[item])
