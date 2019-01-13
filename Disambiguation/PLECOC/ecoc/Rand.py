@@ -169,7 +169,7 @@ class RandPLECOC(BasePLECOC):
         codingLength=self.codingLength
         self.accuracyList=[]
         # 测试前10列
-        for i in range(10):
+        for i in range(1):
             tr_pos_idx=self.tr_pos_idx
             tr_neg_idx=self.tr_neg_idx
             self.coding_matrix=coding_matrix
