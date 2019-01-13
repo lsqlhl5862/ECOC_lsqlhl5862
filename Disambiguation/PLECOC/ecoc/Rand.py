@@ -2,6 +2,7 @@ import numpy as np
 from ecoc.BasePLECOC import BasePLECOC
 from sklearn.svm import libsvm
 from svmutil import *
+from GetComplexity import *
 
 
 class RandPLECOC(BasePLECOC):
@@ -66,16 +67,35 @@ class RandPLECOC(BasePLECOC):
         # dump_matrix = pd.DataFrame(coding_matrix.T)
         # dump_matrix.to_csv(csv_path, index=False, header=False)
         coding_matrix = (coding_matrix * 2 - 1).T
-
         return coding_matrix, tr_pos_idx, tr_neg_idx
 
     def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx):
+        models = []
+        self.complexity=[]
+        for i in range(self.codingLength):
+            pos_inst = tr_data[tr_pos_idx[i]]
+            neg_inst = tr_data[tr_neg_idx[i]]
+            tr_inst = np.vstack((pos_inst, neg_inst))
+            tr_labels = np.hstack((np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+            temp=getDataComplexitybyCol(tr_inst,tr_labels)
+            self.complexity.append(temp)
+            # model = self.estimator().fit(tr_inst, tr_labels)
+            # libsvm 使用的训练方式
+            prob = svm_problem(tr_labels.tolist(), tr_inst.tolist())
+            param = svm_parameter(self.params.get('svm_param'))
+            model = svm_train(prob, param)
+            models.append(model)
+        return models
+
+    def create_base_models_no_complexity(self, tr_data, tr_pos_idx, tr_neg_idx):
         models = []
         for i in range(self.codingLength):
             pos_inst = tr_data[tr_pos_idx[i]]
             neg_inst = tr_data[tr_neg_idx[i]]
             tr_inst = np.vstack((pos_inst, neg_inst))
             tr_labels = np.hstack((np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+            # temp=getDataComplexitybyCol(tr_inst,tr_labels)
+            # self.complexity.append(temp)
             # model = self.estimator().fit(tr_inst, tr_labels)
             # libsvm 使用的训练方式
             prob = svm_problem(tr_labels.tolist(), tr_inst.tolist())
@@ -100,9 +120,11 @@ class RandPLECOC(BasePLECOC):
 
     def fit(self, tr_data, tr_labels):
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
-        print(self.coding_matrix)
+        self.tr_pos_idx=tr_pos_idx
+        self.tr_neg_idx=tr_neg_idx
         self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx)
         self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
+        print(self.performance_matrix.shape)
 
     def predict(self, ts_data, ts_labels):
         bin_pre = None
@@ -142,3 +164,37 @@ class RandPLECOC(BasePLECOC):
         accuracy = count / ts_data.shape[0]
         return pre_label_matrix, accuracy
 
+    def refit_predict(self,tr_data,tr_labels, ts_data, ts_labels,pre_accuracy):
+        coding_matrix=self.coding_matrix
+        codingLength=self.codingLength
+        self.accuracyList=[]
+        for i in range(10):
+            tr_pos_idx=self.tr_pos_idx
+            tr_neg_idx=self.tr_neg_idx
+            self.coding_matrix=coding_matrix
+            #移除列
+            tr_pos_idx.remove(tr_pos_idx[i])
+            tr_neg_idx.remove(tr_neg_idx[i])
+            temp=coding_matrix.transpose().tolist()
+            temp.remove(temp[i])
+            self.coding_matrix=numpy.array(temp).transpose()
+            self.codingLength=self.codingLength-1
+            self.models = self.create_base_models_no_complexity(tr_data, tr_pos_idx, tr_neg_idx)
+            self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
+            pre_label_matrix, accuracy=self.predict(tr_data,tr_labels)
+            self.accuracyList.append(accuracy)
+        
+        posCol=[]
+        negCol=[]
+        for i in range(codingLength):
+            if self.accuracyList[i]-pre_accuracy>=0:
+                posCol.append(i)
+            else:
+                negCol.append(i)
+        print("积极列：")
+        for item in posCol:
+            print(str(self.accuracyList[item]-pre_accuracy)+" "+self.complexity[item])
+        
+        print("消极列：")
+        for item in negCol:
+            print(str(self.accuracyList[item]-pre_accuracy)+" "+self.complexity[item])

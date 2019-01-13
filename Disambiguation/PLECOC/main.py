@@ -17,7 +17,9 @@ def read_mat(filepath, tr_key='train_data', tr_label_key='train_p_target',
         raise NameError('file %s not a mat file', filepath)
     mat = io.loadmat(filepath)
     tr_data = mat[tr_key]
+    print(tr_data)
     tr_labels = mat[tr_label_key]
+    print(tr_labels)
     ts_data = mat[ts_key]
     ts_labels = mat[ts_label_key]
     return tr_data, tr_labels, ts_data, ts_labels
@@ -51,8 +53,11 @@ def run_birdsong():
         filepath = 'mat/BirdSong.mat'
         mat = io.loadmat(filepath)
         tr_data = mat['data']
+        print(tr_data.shape)
         tr_labels = mat['partial_target'].toarray()
         tr_labels = tr_labels.astype(np.int)
+        # print(tr_labels)
+        print(tr_labels.shape)
         # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
         true_labels = mat['target'].toarray()
         true_labels = true_labels.astype(np.int)
@@ -63,7 +68,11 @@ def run_birdsong():
         # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
         pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
         pl_ecoc.fit(split_tr_data, split_tr_labels)
+        print(split_tr_labels)
         pre_label_matrix, accuracy = pl_ecoc.predict(split_ts_data, split_ts_labels)
+        print(split_ts_labels)
+        print("原准确率："+str(accuracy))
+        pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
         del pl_ecoc
         accuracies.append(accuracy)
         data_class = np.array(range(split_ts_labels.shape[0]))
