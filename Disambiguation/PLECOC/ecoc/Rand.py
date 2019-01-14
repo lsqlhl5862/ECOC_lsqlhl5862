@@ -169,9 +169,9 @@ class RandPLECOC(BasePLECOC):
         codingLength=self.codingLength
         self.accuracyList=[]
         # 测试前10列
-        for i in range(20):
-            tr_pos_idx=self.tr_pos_idx
-            tr_neg_idx=self.tr_neg_idx
+        for i in range(codingLength):
+            tr_pos_idx=self.tr_pos_idx.copy()
+            tr_neg_idx=self.tr_neg_idx.copy()
             self.coding_matrix=coding_matrix
             #移除列
             tr_pos_idx.remove(tr_pos_idx[i])
@@ -179,16 +179,16 @@ class RandPLECOC(BasePLECOC):
             temp=coding_matrix.transpose().tolist()
             temp.remove(temp[i])
             self.coding_matrix=numpy.array(temp).transpose()
-            self.codingLength=self.codingLength-1
+            self.codingLength=codingLength-1
             self.models = self.create_base_models_no_complexity(tr_data, tr_pos_idx, tr_neg_idx)
             self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
-            pre_label_matrix, accuracy=self.predict(tr_data,tr_labels)
+            pre_label_matrix, accuracy=self.predict(ts_data,ts_labels)
             self.accuracyList.append(accuracy)
         
         # 比较前10列
         posCol=[]
         negCol=[]
-        for i in range(20):
+        for i in range(codingLength):
             if self.accuracyList[i]-pre_accuracy<=0:
                 posCol.append(i)
             else:

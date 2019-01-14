@@ -50,7 +50,7 @@ def run_birdsong():
     i = 0
     name = 'pl'
     while i != ite:
-        filepath = 'mat/BirdSong.mat'
+        filepath = 'mat/MSRCv2.mat'
         mat = io.loadmat(filepath)
         tr_data = mat['data']
         print(tr_data.shape)

@@ -15,6 +15,6 @@ def getDataComplexitybyCol(trainX,trainY):
     temp.append(round(dc.score(trainX,trainY),4))
     dc = get_data_complexity('F3')
     temp.append(round(dc.score(trainX,trainY),4))
-    dc = get_data_complexity('F2')
+    dc = get_data_complexity('N3')
     temp.append(round(dc.score(trainX,trainY),4))
     return temp
