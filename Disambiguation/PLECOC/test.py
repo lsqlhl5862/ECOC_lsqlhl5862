@@ -67,7 +67,7 @@ def run_birdsong():
         split_tr_labels, split_ts_labels = tr_labels[:, tr_idx], true_labels[:, ts_idx]
         # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
         pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
-        pl_ecoc.reshape(10,split_tr_data, split_tr_labels)
+        pl_ecoc.reshape(1,split_tr_data, split_tr_labels)
         del pl_ecoc
         i = i+1
     # print(name + '_ECOC finish')

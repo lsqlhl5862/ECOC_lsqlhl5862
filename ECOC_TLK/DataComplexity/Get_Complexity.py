@@ -9,7 +9,7 @@ import copy
 from sklearn import neighbors
 from sklearn.linear_model import SGDClassifier
 
-from ECOC_library.DC.Complexity_tool import *
+from DataComplexity.Complexity_tool import *
 import logging
 
 
@@ -32,7 +32,7 @@ def get_complexity_F1(group1_data, group1_label, group2_data, group2_label):
         temp2_data = [x[i] for x in group2_data]
 
         mean_v = np.power(np.mean(temp1_data) - np.mean(temp2_data), 2)
-        var_v = np.power(np.var(temp1_data), 2) + np.power(np.var(temp2_data), 2)
+        var_v = np.power(np.var(temp1_data), 1) + np.power(np.var(temp2_data), 1)
 
         if var_v == 0:
             logging.debug('ERROR-F1: the denominator of the ' + str(i) + ' dimension of F1 is zero!')
