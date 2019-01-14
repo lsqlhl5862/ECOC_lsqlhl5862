@@ -199,3 +199,24 @@ class RandPLECOC(BasePLECOC):
         print("消极列：")
         for item in negCol:
             print(str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
+
+        
+    def reshape(self, times, tr_data, tr_labels):
+        coding_matrix=[]
+        for i in range(times):
+            print(tr_labels.shape[0])
+            temp_coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
+                    tr_data.copy(), tr_labels.copy())
+            temp_complexity_list=[]
+            for i in range(self.codingLength):
+                pos_inst = tr_data[tr_pos_idx[i]]
+                neg_inst = tr_data[tr_neg_idx[i]]
+                tr_inst = np.vstack((pos_inst, neg_inst))
+                tr_labels = np.hstack(
+                    (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+                temp_complexity = getDataComplexitybyCol(tr_inst, tr_labels)
+                temp_complexity_list.append(temp_complexity)
+            print(temp_complexity_list)    
+            # f1_mean=np.array(temp_complexity_list).mean(axis=1)
+            # print(f1_mean)
+    
