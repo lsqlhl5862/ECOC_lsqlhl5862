@@ -17,6 +17,7 @@ class RandPLECOC(BasePLECOC):
         self.models = None
         self.performance_matrix = None
         self.params = params
+        self.complexityList=[]
 
     def create_coding_matrix(self, tr_data, tr_labels):
         num_tr = tr_data.shape[0]
@@ -28,6 +29,7 @@ class RandPLECOC(BasePLECOC):
         counter = 0
         tr_pos_idx = []
         tr_neg_idx = []
+        # complexityList=[]
 
         # test code start
         # csv_path = 'csv/matrix_dump.csv'
@@ -55,6 +57,14 @@ class RandPLECOC(BasePLECOC):
                 tr_pos_idx.append(tmp_pos_idx)
                 tr_neg_idx.append(tmp_neg_idx)
                 coding_matrix = tmpcode if coding_matrix is None else np.vstack((coding_matrix, tmpcode))
+                # 复杂度统计
+                pos_inst = tr_data[tmp_pos_idx]
+                neg_inst = tr_data[tmp_neg_idx]
+                temp_tr_inst = np.vstack((pos_inst, neg_inst))
+                temp_tr_labels = np.hstack(
+                    (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+                temp = getDataComplexitybyCol(temp_tr_inst, temp_tr_labels)
+                self.complexityList.append(temp)
 
             if counter == self.codingLength:
                 break
@@ -71,14 +81,14 @@ class RandPLECOC(BasePLECOC):
 
     def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx):
         models = []
-        self.complexity=[]
+        # self.complexity=[]
         for i in range(self.codingLength):
             pos_inst = tr_data[tr_pos_idx[i]]
             neg_inst = tr_data[tr_neg_idx[i]]
             tr_inst = np.vstack((pos_inst, neg_inst))
             tr_labels = np.hstack((np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
-            temp=getDataComplexitybyCol(tr_inst,tr_labels)
-            self.complexity.append(temp)
+            # temp=getDataComplexitybyCol(tr_inst,tr_labels)
+            # self.complexity.append(temp)
             # model = self.estimator().fit(tr_inst, tr_labels)
             # libsvm 使用的训练方式
             prob = svm_problem(tr_labels.tolist(), tr_inst.tolist())

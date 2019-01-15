@@ -72,7 +72,7 @@ def run_birdsong():
         pre_label_matrix, accuracy = pl_ecoc.predict(split_ts_data, split_ts_labels)
         print(split_ts_labels)
         print("原准确率："+str(accuracy))
-        pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
+        # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
         del pl_ecoc
         accuracies.append(accuracy)
         data_class = np.array(range(split_ts_labels.shape[0]))
