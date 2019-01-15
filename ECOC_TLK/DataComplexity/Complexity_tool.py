@@ -79,7 +79,7 @@ def create_interpolation_data(group_data,group_label):
         if(len(label_data) > 10): # if samples number more than 10, random select a half samples
             random_sequence = [inx for inx in range(len(label_data))]
             random.shuffle(random_sequence)
-            selected_data = [label_data[inx] for inx in random_sequence[0: len(random_sequence) / 2 ]]
+            selected_data = [label_data[inx] for inx in random_sequence[0: len(random_sequence) // 2 ]]
         else:
             selected_data = label_data
 

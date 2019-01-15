@@ -192,7 +192,7 @@ def get_complexity_N4(group1_data, group1_label, group2_data, group2_label):
         logging.error('ERROR-N4: the data size is empty')
         return 0
 
-    train_data = group1_data + group2_data
+    train_data = np.vstack((group1_data ,group2_data))
     train_label = [1] * len(group1_data) + [-1] * len(group2_data)
 
     if (len(train_data) == 0):
@@ -233,24 +233,24 @@ def get_complexity_L3(group1_data, group1_label, group2_data, group2_label):
         logging.error('ERROR-L3: the data size is empty')
         return 0
 
-    train_data = group1_data + group2_data
+    train_data = np.vstack((group1_data , group2_data))
     train_label = [1] * len(group1_data) + [-1] * len(group2_data)
 
     if (len(train_data) == 0):
         logging.error('ERROR-L3: the data size is empty')
         return 0
 
-    interpolation1_data = create_interpolation_data(group1_data)
-    interpolation2_data = create_interpolation_data(group2_data)
+    interpolation1_data = create_interpolation_data(group1_data,group1_label)
+    interpolation2_data = create_interpolation_data(group2_data,group2_label)
 
-    test_data = interpolation1_data + interpolation2_data
+    test_data = interpolation1_data +interpolation2_data
     test_label = [1] * len(interpolation1_data) + [-1] * len(interpolation2_data)
 
     if (len(test_data) == 0):
         logging.error('ERROR-L3: the interpolation data size is empty')
         return 0
 
-    y_pred = SGDClassifier.fit(group1_data + group2_data, group1_label + group2_label).fit_predict(test_data)
+    y_pred = SGDClassifier.fit(np.vstack((group1_data , group2_data)), np.vstack((group1_label , group2_label))).fit_predict(test_data)
 
     L3 = sum([1 for inx, y in enumerate(y_pred) if y != test_label[inx]]) / len(test_label)
 
