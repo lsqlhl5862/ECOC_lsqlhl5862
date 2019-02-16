@@ -57,14 +57,14 @@ class RandPLECOC(BasePLECOC):
                 tr_pos_idx.append(tmp_pos_idx)
                 tr_neg_idx.append(tmp_neg_idx)
                 coding_matrix = tmpcode if coding_matrix is None else np.vstack((coding_matrix, tmpcode))
-                # 复杂度统计
-                pos_inst = tr_data[tmp_pos_idx]
-                neg_inst = tr_data[tmp_neg_idx]
-                temp_tr_inst = np.vstack((pos_inst, neg_inst))
-                temp_tr_labels = np.hstack(
-                    (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
-                temp = getDataComplexitybyCol(temp_tr_inst, temp_tr_labels)
-                self.complexityList.append(temp)
+                # # 复杂度统计
+                # pos_inst = tr_data[tmp_pos_idx]
+                # neg_inst = tr_data[tmp_neg_idx]
+                # temp_tr_inst = np.vstack((pos_inst, neg_inst))
+                # temp_tr_labels = np.hstack(
+                #     (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+                # temp = getDataComplexitybyCol(temp_tr_inst, temp_tr_labels)
+                # self.complexityList.append(temp)
 
             if counter == self.codingLength:
                 break
@@ -229,4 +229,3 @@ class RandPLECOC(BasePLECOC):
             print(temp_complexity_list)    
             # f1_mean=np.array(temp_complexity_list).mean(axis=1)
             # print(f1_mean)
-    

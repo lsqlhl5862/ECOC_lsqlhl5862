@@ -64,12 +64,14 @@ def run_birdsong():
 
         tr_idx, ts_idx = Tools.tr_ts_split_idx(tr_data)
         split_tr_data, split_ts_data = tr_data[tr_idx], tr_data[ts_idx]
-        split_tr_labels, split_ts_labels = tr_labels[:, tr_idx], true_labels[:, ts_idx]
+        split_tr_labels, split_ts_labels = tr_labels[:,
+                                                     tr_idx], true_labels[:, ts_idx]
         # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
         pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
         pl_ecoc.fit(split_tr_data, split_tr_labels)
         print(split_tr_labels)
-        pre_label_matrix, accuracy = pl_ecoc.predict(split_ts_data, split_ts_labels)
+        pre_label_matrix, accuracy = pl_ecoc.predict(
+            split_ts_data, split_ts_labels)
         print(split_ts_labels)
         print("原准确率："+str(accuracy))
         # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
@@ -88,7 +90,7 @@ def run_birdsong():
     print('min = ' + str(min(accuracies)))
 
 
-def draw_hist(myList,Title,Xlabel,Ylabel,Xmin,Xmax,Ymin,Ymax):
+def draw_hist(myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
     name_list = list(range(len(myList)))
     rects = plt.bar(range(len(myList)), myList, color='rgby')
     # X轴标题
@@ -96,11 +98,12 @@ def draw_hist(myList,Title,Xlabel,Ylabel,Xmin,Xmax,Ymin,Ymax):
     # index = [float(c)+0.4 for c in range(len(myList))]
     plt.ylim(ymax=Ymax, ymin=Ymin)
     plt.xticks(index, name_list)
-    plt.ylabel(Ylabel) #X轴标签
+    plt.ylabel(Ylabel)  # X轴标签
     plt.xlabel(Xlabel)
     for rect in rects:
         height = rect.get_height()
-        plt.text(rect.get_x() + rect.get_width() / 2, height, str(height), ha='center', va='bottom')
+        plt.text(rect.get_x() + rect.get_width() / 2, height,
+                 str(height), ha='center', va='bottom')
     plt.title(Title)
     plt.show()
 
