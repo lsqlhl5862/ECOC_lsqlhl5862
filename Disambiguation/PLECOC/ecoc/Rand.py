@@ -135,6 +135,7 @@ class RandPLECOC(BasePLECOC):
         self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx)
         self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
         print(self.performance_matrix.shape)
+        return self.performance_matrix
 
     def predict(self, ts_data, ts_labels):
         bin_pre = None
@@ -169,10 +170,41 @@ class RandPLECOC(BasePLECOC):
         for i in range(ts_data.shape[0]):
             max_idx1 = np.argmax(pre_label_matrix[:, i])
             max_idx2 = np.argmax(ts_labels[:, i])
+            print(pre_label_matrix[:, i],ts_labels[:, i])
             if max_idx1 == max_idx2:
                 count = count+1
         accuracy = count / ts_data.shape[0]
         return pre_label_matrix, accuracy
+
+    def repredict(self, ts_data):
+        bin_pre = None
+        decision_pre = None
+        for i in range(self.codingLength):
+            model = self.models[i]
+            test_label_vector = np.ones(ts_data.shape[0])
+            p_labels, _, p_vals = svm_predict(test_label_vector, ts_data.tolist(), model)
+            # p_labels = model.predict(ts_data)
+            # p_vals = model.decision_function(ts_data)
+            # p_vals = model.score(ts_data)
+
+            bin_pre = p_labels if bin_pre is None else np.vstack((bin_pre, p_labels))
+            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack((decision_pre, np.array(p_vals).T))
+
+        output_value = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            bin_pre_tmp = bin_pre[:, i]
+            decision_pre_tmp = decision_pre[:, i]
+            for j in range(self.num_class):
+                code = self.coding_matrix[j, :]
+                common = np.int8(bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+                error = np.int8(bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+                output_value[j, i] = -sum(common)-sum(error)
+
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_value[:, i] == max(output_value[:, i])
+            pre_label_matrix[idx, i] = 1
+        return pre_label_matrix
 
     def refit_predict(self,tr_data,tr_labels, ts_data, ts_labels,pre_accuracy):
         coding_matrix=self.coding_matrix

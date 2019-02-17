@@ -11,3 +11,4 @@ class BasePLECOC:
 
     def predict(self, test_data):
         pass
+    

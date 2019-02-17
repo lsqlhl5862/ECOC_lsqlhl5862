@@ -9,6 +9,7 @@ from tools import Tools
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import KFold
 from matplotlib import pyplot as plt
+from ecoc import DataDecode
 
 
 def read_mat(filepath, tr_key='train_data', tr_label_key='train_p_target',
@@ -68,11 +69,15 @@ def run_birdsong():
                                                      tr_idx], true_labels[:, ts_idx]
         # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
         pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
-        pl_ecoc.fit(split_tr_data, split_tr_labels)
-        print(split_tr_labels)
-        pre_label_matrix, accuracy = pl_ecoc.predict(
-            split_ts_data, split_ts_labels)
-        print(split_ts_labels)
+        performance_matrix = pl_ecoc.fit(split_tr_data, split_tr_labels)
+
+        # pre_label_matrix, accuracy = pl_ecoc.predict(
+        #     split_ts_data, split_ts_labels)
+        train_label_matrix = pl_ecoc.repredict(
+            split_tr_data)
+        data_decode = DataDecode.DataDecode()
+        data_decode.fit(split_ts_data, train_label_matrix, performance_matrix)
+        data_decode.get_pre_labels(split_ts_data)
         print("原准确率："+str(accuracy))
         # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
         del pl_ecoc
