@@ -9,7 +9,7 @@ from tools import Tools
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import KFold
 from matplotlib import pyplot as plt
-from ecoc import DataDecode
+from ecoc.PreKNN import PreKNN
 
 
 def read_mat(filepath, tr_key='train_data', tr_label_key='train_p_target',
@@ -51,7 +51,8 @@ def run_birdsong():
     i = 0
     name = 'pl'
     while i != ite:
-        filepath = 'mat/BirdSong.mat'
+        filepath = 'mat/MSRCv2.mat'
+        # filepath = 'mat/BirdSong.mat'        
         mat = io.loadmat(filepath)
         tr_data = mat['data']
         print(tr_data.shape)
@@ -59,6 +60,8 @@ def run_birdsong():
         tr_labels = tr_labels.astype(np.int)
         # print(tr_labels)
         print(tr_labels.shape)
+
+
         # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
         true_labels = mat['target'].toarray()
         true_labels = true_labels.astype(np.int)
@@ -67,17 +70,19 @@ def run_birdsong():
         split_tr_data, split_ts_data = tr_data[tr_idx], tr_data[ts_idx]
         split_tr_labels, split_ts_labels = tr_labels[:,
                                                      tr_idx], true_labels[:, ts_idx]
+        
+        #测试PreKNN
+        pre_knn=PreKNN(split_tr_labels)
+        pre_knn.fit(split_tr_data,split_tr_labels)
+        pre_knn.predict(split_ts_data)
+        
         # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
         pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
-        performance_matrix = pl_ecoc.fit(split_tr_data, split_tr_labels)
+        pl_ecoc.fit(split_tr_data, split_tr_labels)
 
-        # pre_label_matrix, accuracy = pl_ecoc.predict(
-        #     split_ts_data, split_ts_labels)
-        train_label_matrix = pl_ecoc.repredict(
-            split_tr_data)
-        data_decode = DataDecode.DataDecode()
-        data_decode.fit(split_ts_data, train_label_matrix, performance_matrix)
-        data_decode.get_pre_labels(split_ts_data)
+        pre_label_matrix, accuracy = pl_ecoc.predict(
+            split_ts_data, split_ts_labels,pre_knn)
+        # data_decode.single_decode(split)
         print("原准确率："+str(accuracy))
         # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
         del pl_ecoc

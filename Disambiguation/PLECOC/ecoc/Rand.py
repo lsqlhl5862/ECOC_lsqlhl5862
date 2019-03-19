@@ -3,6 +3,7 @@ from ecoc.BasePLECOC import BasePLECOC
 from sklearn.svm import libsvm
 from svmutil import *
 from GetComplexity import *
+from ecoc.PreKNN import PreKNN,PLFeatureSelection
 
 
 class RandPLECOC(BasePLECOC):
@@ -17,7 +18,7 @@ class RandPLECOC(BasePLECOC):
         self.models = None
         self.performance_matrix = None
         self.params = params
-        self.complexityList=[]
+        self.fs_models=[]
 
     def create_coding_matrix(self, tr_data, tr_labels):
         num_tr = tr_data.shape[0]
@@ -90,8 +91,13 @@ class RandPLECOC(BasePLECOC):
             # temp=getDataComplexitybyCol(tr_inst,tr_labels)
             # self.complexity.append(temp)
             # model = self.estimator().fit(tr_inst, tr_labels)
+
+            #使用PLFS
+            plfs=PLFeatureSelection(45)
+            plfs.fit(tr_inst,tr_labels)
+            self.fs_models.append(plfs)
             # libsvm 使用的训练方式
-            prob = svm_problem(tr_labels.tolist(), tr_inst.tolist())
+            prob = svm_problem(tr_labels.tolist(), plfs.transform(tr_inst).tolist())
             param = svm_parameter(self.params.get('svm_param'))
             model = svm_train(prob, param)
             models.append(model)
@@ -120,7 +126,7 @@ class RandPLECOC(BasePLECOC):
             model = self.models[i]
             # p_labels = model.predict(tr_data)
             test_label_vector = np.ones(tr_data.shape[0])
-            p_labels, _, _ = svm_predict(test_label_vector, tr_data.tolist(), model)
+            p_labels, _, _ = svm_predict(test_label_vector, self.fs_models[i].transform(tr_data).tolist(), model)
             p_labels = [int(i) for i in p_labels]
             for j in range(self.num_class):
                 label_class_j = np.array(p_labels)[tr_labels[j, :] == 1]
@@ -135,15 +141,15 @@ class RandPLECOC(BasePLECOC):
         self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx)
         self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
         print(self.performance_matrix.shape)
-        return self.performance_matrix
 
-    def predict(self, ts_data, ts_labels):
+    def predict(self, ts_data, ts_labels,pre_knn):
         bin_pre = None
         decision_pre = None
         for i in range(self.codingLength):
             model = self.models[i]
+            fs_model=self.fs_models[i]
             test_label_vector = np.ones(ts_data.shape[0])
-            p_labels, _, p_vals = svm_predict(test_label_vector, ts_data.tolist(), model)
+            p_labels, _, p_vals = svm_predict(test_label_vector, fs_model.transform(ts_data).tolist(), model)
             # p_labels = model.predict(ts_data)
             # p_vals = model.decision_function(ts_data)
             # p_vals = model.score(ts_data)
@@ -154,12 +160,28 @@ class RandPLECOC(BasePLECOC):
         output_value = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             bin_pre_tmp = bin_pre[:, i]
-            decision_pre_tmp = decision_pre[:, i]
+            decision_pre_tmp = decision_pre[:, i]   
             for j in range(self.num_class):
                 code = self.coding_matrix[j, :]
                 common = np.int8(bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
                 error = np.int8(bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
                 output_value[j, i] = -sum(common)-sum(error)
+            
+            # count_common=0
+            # for i in range(len(common_list)):
+            #     if(np.array_equal(common_list[i],temp_common)):
+            #         count_common+=1
+            # print(count_common)
+        # for i in range(ts_data.shape[0]):
+        #     bin_pre_tmp = bin_pre[:, i]
+        #     decision_pre_tmp = decision_pre[:, i]
+        #     for j in range(self.num_class):
+        #         code = self.coding_matrix[j, :]
+        #         common = np.int8(bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+        #         if(j==pre_labels[i]):
+        #             self.data_decode.set_cols_list(np.where(common==0),np.where(common!=0))
+        #         error = np.int8(bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+        #         output_value[j, i] = -sum(common)-sum(error)
 
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
@@ -170,10 +192,38 @@ class RandPLECOC(BasePLECOC):
         for i in range(ts_data.shape[0]):
             max_idx1 = np.argmax(pre_label_matrix[:, i])
             max_idx2 = np.argmax(ts_labels[:, i])
-            print(pre_label_matrix[:, i],ts_labels[:, i])
             if max_idx1 == max_idx2:
                 count = count+1
         accuracy = count / ts_data.shape[0]
+        
+        print(accuracy)
+
+        pre_label_matrix = pre_knn.getPredictMatrix()
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        accuracy = count / ts_data.shape[0]
+        print(accuracy)
+
+        pre_knn_matrix=pre_knn.getPreKnnMatrix()
+        output_value=output_value+pre_knn_matrix*0.5
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_value[:, i] == max(output_value[:, i])
+            pre_label_matrix[idx, i] = 1
+
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        accuracy = count / ts_data.shape[0]
+        print(accuracy)
+
         return pre_label_matrix, accuracy
 
     def repredict(self, ts_data):

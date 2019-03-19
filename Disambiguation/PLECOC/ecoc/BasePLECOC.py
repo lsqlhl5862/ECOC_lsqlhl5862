@@ -6,9 +6,8 @@ class BasePLECOC:
         self.estimator = estimator
         self.params = params
 
-    def fit(self,train_data, tarin_labels):
+    def fit(self, train_data, tarin_labels):
         pass
 
     def predict(self, test_data):
         pass
-    
