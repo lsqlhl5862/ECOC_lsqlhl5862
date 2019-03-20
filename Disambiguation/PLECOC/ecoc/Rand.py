@@ -80,7 +80,7 @@ class RandPLECOC(BasePLECOC):
         coding_matrix = (coding_matrix * 2 - 1).T
         return coding_matrix, tr_pos_idx, tr_neg_idx
 
-    def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx):
+    def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx,num_feature):
         models = []
         # self.complexity=[]
         for i in range(self.codingLength):
@@ -93,7 +93,7 @@ class RandPLECOC(BasePLECOC):
             # model = self.estimator().fit(tr_inst, tr_labels)
 
             #使用PLFS
-            plfs=PLFeatureSelection(45)
+            plfs=PLFeatureSelection(num_feature)
             plfs.fit(tr_inst,tr_labels)
             self.fs_models.append(plfs)
             # libsvm 使用的训练方式
@@ -138,9 +138,24 @@ class RandPLECOC(BasePLECOC):
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
         self.tr_pos_idx=tr_pos_idx
         self.tr_neg_idx=tr_neg_idx
-        self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx)
+        self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx,tr_data.shape[1])
         self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
         print(self.performance_matrix.shape)
+
+    def fit_predict(self, tr_data, tr_labels,ts_data,ts_labels,pre_knn):
+        self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
+        self.tr_pos_idx=tr_pos_idx
+        self.tr_neg_idx=tr_neg_idx
+        repeat=int(tr_data.shape[1]/2)
+        temp=[]
+        for i in range(repeat):
+            self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx,tr_data.shape[1]-i)
+            self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
+            print(self.performance_matrix.shape)
+            matrix,base_accuracy,knn_accuracy,com_accuracy =self.predict(ts_data,ts_labels,pre_knn)
+            temp.append([base_accuracy,knn_accuracy,com_accuracy])
+        return temp
+        
 
     def predict(self, ts_data, ts_labels,pre_knn):
         bin_pre = None
@@ -194,9 +209,9 @@ class RandPLECOC(BasePLECOC):
             max_idx2 = np.argmax(ts_labels[:, i])
             if max_idx1 == max_idx2:
                 count = count+1
-        accuracy = count / ts_data.shape[0]
+        base_accuracy = count / ts_data.shape[0]
         
-        print(accuracy)
+        print(base_accuracy)
 
         pre_label_matrix = pre_knn.getPredictMatrix()
         count = 0
@@ -205,8 +220,8 @@ class RandPLECOC(BasePLECOC):
             max_idx2 = np.argmax(ts_labels[:, i])
             if max_idx1 == max_idx2:
                 count = count+1
-        accuracy = count / ts_data.shape[0]
-        print(accuracy)
+        knn_accuracy = count / ts_data.shape[0]
+        print(knn_accuracy)
 
         pre_knn_matrix=pre_knn.getPreKnnMatrix()
         output_value=output_value+pre_knn_matrix*0.5
@@ -221,10 +236,10 @@ class RandPLECOC(BasePLECOC):
             max_idx2 = np.argmax(ts_labels[:, i])
             if max_idx1 == max_idx2:
                 count = count+1
-        accuracy = count / ts_data.shape[0]
-        print(accuracy)
+        com_accuracy = count / ts_data.shape[0]
+        print(com_accuracy)
 
-        return pre_label_matrix, accuracy
+        return pre_label_matrix, base_accuracy,knn_accuracy,com_accuracy
 
     def repredict(self, ts_data):
         bin_pre = None

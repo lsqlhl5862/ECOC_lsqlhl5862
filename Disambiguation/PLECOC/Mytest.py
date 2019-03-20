@@ -16,4 +16,7 @@ import numpy as np
 
 a = [1.0, 2.0]
 a = [int(e) for e in a]
-print(a)
+temp=[]
+a=1
+temp.append([a,2,3])
+print(temp)

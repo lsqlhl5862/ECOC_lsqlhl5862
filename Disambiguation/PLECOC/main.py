@@ -78,15 +78,18 @@ def run_birdsong():
         
         # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
         pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
-        pl_ecoc.fit(split_tr_data, split_tr_labels)
+        # pl_ecoc.fit(split_tr_data, split_tr_labels)
 
-        pre_label_matrix, accuracy = pl_ecoc.predict(
-            split_ts_data, split_ts_labels,pre_knn)
-        # data_decode.single_decode(split)
+        # pre_label_matrix,base_accuracy,knn_accuracy,com_accuracy = pl_ecoc.predict(
+        #     split_ts_data, split_ts_labels,pre_knn)
+
+        result=pl_ecoc.fit_predict(split_tr_data, split_tr_labels,split_ts_data, split_ts_labels,pre_knn)
+        for index in range(len(result)):
+            print(i+": "+result[index])
         print("原准确率："+str(accuracy))
         # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
         del pl_ecoc
-        accuracies.append(accuracy)
+        accuracies.append(com_accuracy)
         data_class = np.array(range(split_ts_labels.shape[0]))
         ts_vector = np.dot(data_class, split_ts_labels)
         pre_vector = np.dot(data_class, pre_label_matrix)
