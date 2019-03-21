@@ -146,7 +146,10 @@ class RandPLECOC(BasePLECOC):
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
         self.tr_pos_idx=tr_pos_idx
         self.tr_neg_idx=tr_neg_idx
-        repeat=int(tr_data.shape[1]/2)
+        repeat=int(tr_data.shape[1]/3)
+        if(repeat>15):
+            repeat=15
+        # repeat=int(3)
         temp=[]
         for i in range(repeat):
             self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx,tr_data.shape[1]-i)
@@ -239,7 +242,7 @@ class RandPLECOC(BasePLECOC):
         com_accuracy = count / ts_data.shape[0]
         print(com_accuracy)
 
-        return pre_label_matrix, base_accuracy,knn_accuracy,com_accuracy
+        return pre_label_matrix, round(base_accuracy,4),round(knn_accuracy,4),round(com_accuracy,4)
 
     def repredict(self, ts_data):
         bin_pre = None

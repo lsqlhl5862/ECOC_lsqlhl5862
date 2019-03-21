@@ -454,7 +454,7 @@ def getAllAccuracy(dataName):
         # plt.ylim(0, 1)
         # plt.title(dataName+"_"+item+" score:"+str(score),fontsize=25)
         # plt.legend(bbox_to_anchor=(1.0, 1), loc=1, borderaxespad=0.)
-        # plt.savefig("pictures/"+dataName+"_"+item+"_N.png")
+        # plt.savefig("pictures/"+dataName+"_"+item+"_N.png")plt.savefig("pictures/"+dataName+"_"+item+"_N.png")
         # plt.show()
 
     # for a, b in zip(encodingList, scoreList):

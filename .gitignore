@@ -19,3 +19,4 @@ ECOC_TLK/Decoding/__pycache__/Decoder.cpython-36.pyc
 ECOC_TLK/FeatureSelection/__pycache__/FeatureSelector.cpython-36.pyc
 ECOC_TLK/__pycache__/DataLoader.cpython-36.pyc
 .vscode/launch.json
+Disambiguation/.vscode/launch.json
