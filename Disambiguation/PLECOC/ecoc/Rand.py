@@ -146,17 +146,17 @@ class RandPLECOC(BasePLECOC):
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
         self.tr_pos_idx=tr_pos_idx
         self.tr_neg_idx=tr_neg_idx
-        repeat=int(tr_data.shape[1]/3)
-        if(repeat>15):
-            repeat=15
-        # repeat=int(3)
+        # repeat=int(tr_data.shape[1]/3)
+        # if(repeat>15):
+        #     repeat=15
+        repeat=int(1)
         temp=[]
         for i in range(repeat):
             self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx,tr_data.shape[1]-i)
             self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
             print(self.performance_matrix.shape)
-            matrix,base_accuracy,knn_accuracy,com_accuracy =self.predict(ts_data,ts_labels,pre_knn)
-            temp.append([base_accuracy,knn_accuracy,com_accuracy])
+            matrix,base_accuracy,knn_accuracy,com_1_accuracy,com_2_accuracy =self.predict(ts_data,ts_labels,pre_knn)
+            temp.append([base_accuracy,knn_accuracy,com_1_accuracy,com_2_accuracy])
         return temp
         
 
@@ -227,10 +227,10 @@ class RandPLECOC(BasePLECOC):
         print(knn_accuracy)
 
         pre_knn_matrix=pre_knn.getPreKnnMatrix()
-        output_value=output_value+pre_knn_matrix*0.5
+        output_1_value=output_value+pre_knn_matrix*0.5
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
-            idx = output_value[:, i] == max(output_value[:, i])
+            idx = output_1_value[:, i] == max(output_1_value[:, i])
             pre_label_matrix[idx, i] = 1
 
         count = 0
@@ -239,10 +239,43 @@ class RandPLECOC(BasePLECOC):
             max_idx2 = np.argmax(ts_labels[:, i])
             if max_idx1 == max_idx2:
                 count = count+1
-        com_accuracy = count / ts_data.shape[0]
-        print(com_accuracy)
+        com_1_accuracy = count / ts_data.shape[0]
+        print(com_1_accuracy)
 
-        return pre_label_matrix, round(base_accuracy,4),round(knn_accuracy,4),round(com_accuracy,4)
+        pre_knn_matrix=pre_knn.getPreKnnMatrix()
+        output_2_value=pre_knn_matrix/(-output_value)
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_2_value[:, i] == max(output_2_value[:, i])
+            pre_label_matrix[idx, i] = 1
+
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        com_2_accuracy = count / ts_data.shape[0]
+        print(com_2_accuracy)
+
+        # pre_knn_matrix=pre_knn.getPreKnnMatrix()
+        # output_value=output_value+pre_knn_matrix*0.5
+        # pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        # for i in range(ts_data.shape[0]):
+        #     idx = output_value[:, i] == max(output_value[:, i])
+        #     pre_label_matrix[idx, i] = 1
+
+        # count = 0
+        # for i in range(ts_data.shape[0]):
+        #     max_idx1 = np.argmax(pre_label_matrix[:, i])
+        #     max_idx2 = np.argmax(ts_labels[:, i])
+        #     if max_idx1 == max_idx2:
+        #         count = count+1
+        # com_accuracy = count / ts_data.shape[0]
+        # print(com_accuracy)
+
+
+        return pre_label_matrix, round(base_accuracy,4),round(knn_accuracy,4),round(com_1_accuracy,4),round(com_2_accuracy,4)
 
     def repredict(self, ts_data):
         bin_pre = None

@@ -8,6 +8,7 @@ from svmutil import *
 from tools import Tools
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import KFold
+from sklearn import preprocessing
 from matplotlib import pyplot as plt
 from ecoc.PreKNN import PreKNN
 
@@ -50,7 +51,8 @@ def run_birdsong():
     ite = 1
     i = 0
     name = 'pl'
-    mat_list=["MSRCv2","lost"]
+    # mat_list=["MSRCv2","lost"]
+    mat_list=["MSRCv2",]
     for item in mat_list:
         accuracies=[]
         for i in range(ite):
@@ -68,7 +70,8 @@ def run_birdsong():
             # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
             true_labels = mat['target'].toarray()
             true_labels = true_labels.astype(np.int)
-
+            # tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
+            tr_data=preprocessing.StandardScaler().fit_transform(tr_data)
             tr_idx, ts_idx = Tools.tr_ts_split_idx(tr_data)
             split_tr_data, split_ts_data = tr_data[tr_idx], tr_data[ts_idx]
             split_tr_labels, split_ts_labels = tr_labels[:,
@@ -104,7 +107,7 @@ def run_birdsong():
             # confusion = confusion_matrix(ts_vector.tolist(), pre_vector.tolist())
             # i = i+1
         file_name=item+"_mean"
-        draw_hist(file_name,accuracies,item+"_mean:"+str(np.mean(accuracies))," ","Accuracy",0,1,0,1)
+        # draw_hist(file_name,accuracies,item+"_mean:"+str(np.mean(accuracies))," ","Accuracy",0,1,0,1)
         # print(name + '_ECOC finish')
         # print('耗时: {:>10.2f} minutes'.format((time.time()-start)/60))
         # print(accuracies)
@@ -115,7 +118,8 @@ def run_birdsong():
 
 def draw_hist(file_name,myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
     name_list = list(range(len(myList)))
-    name_list.reverse()
+    plt.figure()
+    # name_list.reverse()
     rects = plt.bar(range(len(myList)), myList, color='rgby')
     # X轴标题
     index = list(range(len(myList)))

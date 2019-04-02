@@ -53,16 +53,20 @@ class PreKNN:
         for i in range(pre_data.shape[0]):
             temp_distances=self.neighbors[0][i]
             temp_indexs=self.neighbors[1][i]
+            distances_sum=np.sum(temp_distances)
             temp_pre_labels_matrix=np.zeros((1,self.tr_labels.shape[0])).T
             temp_pre_distances_matrix=np.zeros((1,self.tr_labels.shape[0])).T
+            temp_pre_weight=np.zeros((1,len(temp_indexs))).T
             for j in range(len(temp_indexs)):
+                temp_pre_weight[j]=1-temp_distances[j]/distances_sum
                 for index in np.where(self.tr_labels[:,temp_indexs[j]]==1)[0]:
                     temp_pre_distances_matrix[index][0]+=temp_distances[j]
-                    temp_pre_labels_matrix[index][0]+=1
+                    temp_pre_labels_matrix[index][0]+=temp_pre_weight[j]
             # print(np.where(temp_pre_labels_matrix==temp_pre_labels_matrix.max()))
-            self.pre_knn_perfomance_matrix=temp_pre_distances_matrix if self.pre_knn_perfomance_matrix is None else np.hstack((self.pre_knn_perfomance_matrix,temp_pre_distances_matrix))
+            # self.pre_knn_perfomance_matrix=temp_pre_distances_matrix if self.pre_knn_perfomance_matrix is None else np.hstack((self.pre_knn_perfomance_matrix,temp_pre_distances_matrix))
             self.pre_knn_labels_matrix=temp_pre_labels_matrix if self.pre_knn_labels_matrix is None else np.hstack((self.pre_knn_labels_matrix,temp_pre_labels_matrix))
-        self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_perfomance_matrix)
+        # self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_perfomance_matrix)
+        self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_labels_matrix)
         
         self.pre_label_matrix = np.zeros((self.tr_labels.shape[0], pre_data.shape[0]))
         for i in range(pre_data.shape[0]):
