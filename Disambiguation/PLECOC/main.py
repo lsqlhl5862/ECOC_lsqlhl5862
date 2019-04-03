@@ -72,10 +72,10 @@ def run_birdsong():
             true_labels = true_labels.astype(np.int)
             # tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
             tr_data=preprocessing.StandardScaler().fit_transform(tr_data)
-            tr_idx, ts_idx = Tools.tr_ts_split_idx(tr_data)
-            split_tr_data, split_ts_data = tr_data[tr_idx], tr_data[ts_idx]
-            split_tr_labels, split_ts_labels = tr_labels[:,
-                                                        tr_idx], true_labels[:, ts_idx]
+            tr_idx, ts_idx,tv_idx = Tools.tr_ts_split_idx(tr_data)
+            split_tr_data, split_ts_data,split_tv_data = tr_data[tr_idx], tr_data[ts_idx],tr_data[tv_idx]
+            split_tr_labels, split_ts_labels,split_tv_labels = tr_labels[:,
+                                                        tr_idx], true_labels[:, ts_idx],true_labels[:,tv_idx]
             
             #测试PreKNN
             pre_knn=PreKNN(split_tr_labels)

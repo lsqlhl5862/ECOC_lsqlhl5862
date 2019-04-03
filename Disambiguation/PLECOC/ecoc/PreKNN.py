@@ -66,8 +66,10 @@ class PreKNN:
             # self.pre_knn_perfomance_matrix=temp_pre_distances_matrix if self.pre_knn_perfomance_matrix is None else np.hstack((self.pre_knn_perfomance_matrix,temp_pre_distances_matrix))
             self.pre_knn_labels_matrix=temp_pre_labels_matrix if self.pre_knn_labels_matrix is None else np.hstack((self.pre_knn_labels_matrix,temp_pre_labels_matrix))
         # self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_perfomance_matrix)
-        self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_labels_matrix)
-        
+        # self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_labels_matrix)
+        self.pre_knn_perfomance_matrix=preprocessing.StandardScaler().fit_transform(self.pre_knn_labels_matrix)
+        self.pre_knn_perfomance_matrix=preprocessing.MinMaxScaler().fit_transform(self.pre_knn_perfomance_matrix)
+
         self.pre_label_matrix = np.zeros((self.tr_labels.shape[0], pre_data.shape[0]))
         for i in range(pre_data.shape[0]):
             idx = self.pre_knn_labels_matrix[:, i] == max(self.pre_knn_labels_matrix[:, i])

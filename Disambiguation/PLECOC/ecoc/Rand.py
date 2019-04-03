@@ -3,7 +3,9 @@ from ecoc.BasePLECOC import BasePLECOC
 from sklearn.svm import libsvm
 from svmutil import *
 from GetComplexity import *
-from ecoc.PreKNN import PreKNN,PLFeatureSelection
+from sklearn import preprocessing
+from ecoc.PreKNN import PreKNN, PLFeatureSelection
+from CodeMatrix.Matrix_tool import _exist_same_col, _exist_same_row, _exist_two_class
 
 
 class RandPLECOC(BasePLECOC):
@@ -18,7 +20,71 @@ class RandPLECOC(BasePLECOC):
         self.models = None
         self.performance_matrix = None
         self.params = params
-        self.fs_models=[]
+        self.fs_models = []
+
+    def create_integrity_coding_matrix(self, tr_data, tr_labels):
+        num_tr = tr_data.shape[0]
+        self.num_class = tr_labels.shape[0]
+        self.codingLength = int(np.ceil(10 * np.log2(self.num_class)))
+        self.min_num_tr = int(np.ceil(0.1 * num_tr))
+
+        coding_matrix = None
+        counter = 0
+        tr_pos_idx = []
+        tr_neg_idx = []
+        tr_data_flag=np.zeros(num_tr)
+
+        # test code start
+        # csv_path = 'csv/matrix_dump.csv'
+        # if os.path.exists(csv_path):
+        #     os.remove(csv_path)
+        # test_code_matrix = pd.read_csv(csv_path, header=-1).values
+        # for i in range(test_code_matrix.shape[1]):
+        # test code end
+        for i in range(self.max_iter):
+            tmpcode = np.int8(np.random.rand(self.num_class) > 0.5)
+            if coding_matrix is not None:
+                tmp_code_matrix = np.vstack((coding_matrix, tmpcode))
+                while(_exist_same_row(tmp_code_matrix) or _exist_two_class(tmp_code_matrix)):
+                    tmpcode = np.int8(np.random.rand(self.num_class) > 0.5)
+                    tmp_code_matrix = np.vstack((coding_matrix, tmpcode))
+            # tmpcode = test_code_matrix[:, i]
+            tmp_pos_idx = []
+            tmp_neg_idx = []
+            tmp_tr_data_flag=tr_data_flag.copy()
+            for j in range(num_tr):
+                if np.all((tr_labels[:, j] & tmpcode) == tr_labels[:, j]):
+                    tmp_pos_idx.append(j)
+                    tmp_tr_data_flag[j]+=1
+                else:
+                    if np.all((tr_labels[:, j] & np.int8(np.logical_not(tmpcode))) == tr_labels[:, j]):
+                        tmp_neg_idx.append(j)
+                        tmp_tr_data_flag[j]+=1
+            num_pos = len(tmp_pos_idx)
+            num_neg = len(tmp_neg_idx)
+
+            if (num_pos+num_neg >= self.min_num_tr) and (num_pos >= 5) and (num_neg >= 5) and (len(np.where(tmp_tr_data_flag==0)[0])==0 or len(np.where(tmp_tr_data_flag==0)[0])<len(np.where(tr_data_flag==0)[0])):
+                counter = counter + 1
+                tr_pos_idx.append(tmp_pos_idx)
+                tr_neg_idx.append(tmp_neg_idx)
+                coding_matrix = tmpcode if coding_matrix is None else np.vstack(
+                    (coding_matrix, tmpcode))
+                tr_data_flag=tmp_tr_data_flag
+
+            if counter == self.codingLength:
+                break
+
+        if counter != self.codingLength:
+            raise ValueError(
+                'The required codeword length %s not satisfied', str(self.codingLength))
+            self.codingLength = counter
+            if counter == 0:
+                raise ValueError('Empty coding matrix')
+        # dump_matrix = pd.DataFrame(coding_matrix.T)
+        # dump_matrix.to_csv(csv_path, index=False, header=False)
+        coding_matrix = (coding_matrix * 2 - 1).T
+        print(len(np.where(tr_data_flag==0)[0]))
+        return coding_matrix, tr_pos_idx, tr_neg_idx
 
     def create_coding_matrix(self, tr_data, tr_labels):
         num_tr = tr_data.shape[0]
@@ -57,7 +123,8 @@ class RandPLECOC(BasePLECOC):
                 counter = counter + 1
                 tr_pos_idx.append(tmp_pos_idx)
                 tr_neg_idx.append(tmp_neg_idx)
-                coding_matrix = tmpcode if coding_matrix is None else np.vstack((coding_matrix, tmpcode))
+                coding_matrix = tmpcode if coding_matrix is None else np.vstack(
+                    (coding_matrix, tmpcode))
                 # # 复杂度统计
                 # pos_inst = tr_data[tmp_pos_idx]
                 # neg_inst = tr_data[tmp_neg_idx]
@@ -71,7 +138,8 @@ class RandPLECOC(BasePLECOC):
                 break
 
         if counter != self.codingLength:
-            raise ValueError('The required codeword length %s not satisfied', str(self.codingLength))
+            raise ValueError(
+                'The required codeword length %s not satisfied', str(self.codingLength))
             self.codingLength = counter
             if counter == 0:
                 raise ValueError('Empty coding matrix')
@@ -80,24 +148,26 @@ class RandPLECOC(BasePLECOC):
         coding_matrix = (coding_matrix * 2 - 1).T
         return coding_matrix, tr_pos_idx, tr_neg_idx
 
-    def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx,num_feature):
+    def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx, num_feature):
         models = []
         # self.complexity=[]
         for i in range(self.codingLength):
             pos_inst = tr_data[tr_pos_idx[i]]
             neg_inst = tr_data[tr_neg_idx[i]]
             tr_inst = np.vstack((pos_inst, neg_inst))
-            tr_labels = np.hstack((np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+            tr_labels = np.hstack(
+                (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
             # temp=getDataComplexitybyCol(tr_inst,tr_labels)
             # self.complexity.append(temp)
             # model = self.estimator().fit(tr_inst, tr_labels)
 
-            #使用PLFS
-            plfs=PLFeatureSelection(num_feature)
-            plfs.fit(tr_inst,tr_labels)
+            # 使用PLFS
+            plfs = PLFeatureSelection(num_feature)
+            plfs.fit(tr_inst, tr_labels)
             self.fs_models.append(plfs)
             # libsvm 使用的训练方式
-            prob = svm_problem(tr_labels.tolist(), plfs.transform(tr_inst).tolist())
+            prob = svm_problem(tr_labels.tolist(),
+                               plfs.transform(tr_inst).tolist())
             param = svm_parameter(self.params.get('svm_param'))
             model = svm_train(prob, param)
             models.append(model)
@@ -109,7 +179,8 @@ class RandPLECOC(BasePLECOC):
             pos_inst = tr_data[tr_pos_idx[i]]
             neg_inst = tr_data[tr_neg_idx[i]]
             tr_inst = np.vstack((pos_inst, neg_inst))
-            tr_labels = np.hstack((np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+            tr_labels = np.hstack(
+                (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
             # temp=getDataComplexitybyCol(tr_inst,tr_labels)
             # self.complexity.append(temp)
             # model = self.estimator().fit(tr_inst, tr_labels)
@@ -126,70 +197,84 @@ class RandPLECOC(BasePLECOC):
             model = self.models[i]
             # p_labels = model.predict(tr_data)
             test_label_vector = np.ones(tr_data.shape[0])
-            p_labels, _, _ = svm_predict(test_label_vector, self.fs_models[i].transform(tr_data).tolist(), model)
+            p_labels, _, _ = svm_predict(
+                test_label_vector, self.fs_models[i].transform(tr_data).tolist(), model)
             p_labels = [int(i) for i in p_labels]
             for j in range(self.num_class):
                 label_class_j = np.array(p_labels)[tr_labels[j, :] == 1]
                 performance_matrix[j, i] = np.abs(sum(label_class_j[label_class_j ==
-                                         self.coding_matrix[j, i]])/label_class_j.shape[0])
+                                                                    self.coding_matrix[j, i]])/label_class_j.shape[0])
         return performance_matrix / np.transpose(np.tile(performance_matrix.sum(axis=1), (performance_matrix.shape[1], 1)))
 
     def fit(self, tr_data, tr_labels):
-        self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
-        self.tr_pos_idx=tr_pos_idx
-        self.tr_neg_idx=tr_neg_idx
-        self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx,tr_data.shape[1])
-        self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
+        self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
+            tr_data, tr_labels)
+        self.tr_pos_idx = tr_pos_idx
+        self.tr_neg_idx = tr_neg_idx
+        self.models = self.create_base_models(
+            tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1])
+        self.performance_matrix = self.create_performance_matrix(
+            tr_data, tr_labels)
         print(self.performance_matrix.shape)
 
-    def fit_predict(self, tr_data, tr_labels,ts_data,ts_labels,pre_knn):
-        self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(tr_data, tr_labels)
-        self.tr_pos_idx=tr_pos_idx
-        self.tr_neg_idx=tr_neg_idx
+    def fit_predict(self, tr_data, tr_labels, ts_data, ts_labels, pre_knn):
+        self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_integrity_coding_matrix(
+            tr_data, tr_labels)
+        self.tr_pos_idx = tr_pos_idx
+        self.tr_neg_idx = tr_neg_idx
         # repeat=int(tr_data.shape[1]/3)
         # if(repeat>15):
         #     repeat=15
-        repeat=int(1)
-        temp=[]
+        repeat = int(1)
+        temp = []
         for i in range(repeat):
-            self.models = self.create_base_models(tr_data, tr_pos_idx, tr_neg_idx,tr_data.shape[1]-i)
-            self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
+            self.models = self.create_base_models(
+                tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1]-i)
+            self.performance_matrix = self.create_performance_matrix(
+                tr_data, tr_labels)
             print(self.performance_matrix.shape)
-            matrix,base_accuracy,knn_accuracy,com_1_accuracy,com_2_accuracy =self.predict(ts_data,ts_labels,pre_knn)
-            temp.append([base_accuracy,knn_accuracy,com_1_accuracy,com_2_accuracy])
+            matrix, base_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
+                ts_data, ts_labels, pre_knn)
+            temp.append([base_accuracy, knn_accuracy,
+                         com_1_accuracy, com_2_accuracy])
         return temp
-        
 
-    def predict(self, ts_data, ts_labels,pre_knn):
+    def predict(self, ts_data, ts_labels, pre_knn):
         bin_pre = None
         decision_pre = None
         for i in range(self.codingLength):
             model = self.models[i]
-            fs_model=self.fs_models[i]
+            fs_model = self.fs_models[i]
             test_label_vector = np.ones(ts_data.shape[0])
-            p_labels, _, p_vals = svm_predict(test_label_vector, fs_model.transform(ts_data).tolist(), model)
+            p_labels, _, p_vals = svm_predict(
+                test_label_vector, fs_model.transform(ts_data).tolist(), model)
             # p_labels = model.predict(ts_data)
             # p_vals = model.decision_function(ts_data)
             # p_vals = model.score(ts_data)
 
-            bin_pre = p_labels if bin_pre is None else np.vstack((bin_pre, p_labels))
-            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack((decision_pre, np.array(p_vals).T))
+            bin_pre = p_labels if bin_pre is None else np.vstack(
+                (bin_pre, p_labels))
+            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack(
+                (decision_pre, np.array(p_vals).T))
 
         output_value = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             bin_pre_tmp = bin_pre[:, i]
-            decision_pre_tmp = decision_pre[:, i]   
+            decision_pre_tmp = decision_pre[:, i]
             for j in range(self.num_class):
                 code = self.coding_matrix[j, :]
-                common = np.int8(bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
-                error = np.int8(bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+                common = np.int8(
+                    bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+                error = np.int8(
+                    bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
                 output_value[j, i] = -sum(common)-sum(error)
-            
-            # count_common=0
-            # for i in range(len(common_list)):
-            #     if(np.array_equal(common_list[i],temp_common)):
-            #         count_common+=1
-            # print(count_common)
+
+        output_value = preprocessing.MinMaxScaler().fit_transform(output_value)
+        # count_common=0
+        # for i in range(len(common_list)):
+        #     if(np.array_equal(common_list[i],temp_common)):
+        #         count_common+=1
+        # print(count_common)
         # for i in range(ts_data.shape[0]):
         #     bin_pre_tmp = bin_pre[:, i]
         #     decision_pre_tmp = decision_pre[:, i]
@@ -213,7 +298,7 @@ class RandPLECOC(BasePLECOC):
             if max_idx1 == max_idx2:
                 count = count+1
         base_accuracy = count / ts_data.shape[0]
-        
+
         print(base_accuracy)
 
         pre_label_matrix = pre_knn.getPredictMatrix()
@@ -226,8 +311,8 @@ class RandPLECOC(BasePLECOC):
         knn_accuracy = count / ts_data.shape[0]
         print(knn_accuracy)
 
-        pre_knn_matrix=pre_knn.getPreKnnMatrix()
-        output_1_value=output_value+pre_knn_matrix*0.5
+        pre_knn_matrix = pre_knn.getPreKnnMatrix()
+        output_1_value = output_value+pre_knn_matrix
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_1_value[:, i] == max(output_1_value[:, i])
@@ -242,8 +327,8 @@ class RandPLECOC(BasePLECOC):
         com_1_accuracy = count / ts_data.shape[0]
         print(com_1_accuracy)
 
-        pre_knn_matrix=pre_knn.getPreKnnMatrix()
-        output_2_value=pre_knn_matrix/(-output_value)
+        pre_knn_matrix = pre_knn.getPreKnnMatrix()
+        output_2_value = pre_knn_matrix*output_value
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_2_value[:, i] == max(output_2_value[:, i])
@@ -274,8 +359,7 @@ class RandPLECOC(BasePLECOC):
         # com_accuracy = count / ts_data.shape[0]
         # print(com_accuracy)
 
-
-        return pre_label_matrix, round(base_accuracy,4),round(knn_accuracy,4),round(com_1_accuracy,4),round(com_2_accuracy,4)
+        return pre_label_matrix, round(base_accuracy, 4), round(knn_accuracy, 4), round(com_1_accuracy, 4), round(com_2_accuracy, 4)
 
     def repredict(self, ts_data):
         bin_pre = None
@@ -283,13 +367,16 @@ class RandPLECOC(BasePLECOC):
         for i in range(self.codingLength):
             model = self.models[i]
             test_label_vector = np.ones(ts_data.shape[0])
-            p_labels, _, p_vals = svm_predict(test_label_vector, ts_data.tolist(), model)
+            p_labels, _, p_vals = svm_predict(
+                test_label_vector, ts_data.tolist(), model)
             # p_labels = model.predict(ts_data)
             # p_vals = model.decision_function(ts_data)
             # p_vals = model.score(ts_data)
 
-            bin_pre = p_labels if bin_pre is None else np.vstack((bin_pre, p_labels))
-            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack((decision_pre, np.array(p_vals).T))
+            bin_pre = p_labels if bin_pre is None else np.vstack(
+                (bin_pre, p_labels))
+            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack(
+                (decision_pre, np.array(p_vals).T))
 
         output_value = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
@@ -297,8 +384,10 @@ class RandPLECOC(BasePLECOC):
             decision_pre_tmp = decision_pre[:, i]
             for j in range(self.num_class):
                 code = self.coding_matrix[j, :]
-                common = np.int8(bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
-                error = np.int8(bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+                common = np.int8(
+                    bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+                error = np.int8(
+                    bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
                 output_value[j, i] = -sum(common)-sum(error)
 
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
@@ -307,50 +396,53 @@ class RandPLECOC(BasePLECOC):
             pre_label_matrix[idx, i] = 1
         return pre_label_matrix
 
-    def refit_predict(self,tr_data,tr_labels, ts_data, ts_labels,pre_accuracy):
-        coding_matrix=self.coding_matrix
-        codingLength=self.codingLength
-        self.accuracyList=[]
+    def refit_predict(self, tr_data, tr_labels, ts_data, ts_labels, pre_accuracy):
+        coding_matrix = self.coding_matrix
+        codingLength = self.codingLength
+        self.accuracyList = []
         # 测试前10列
         for i in range(codingLength):
-            tr_pos_idx=self.tr_pos_idx.copy()
-            tr_neg_idx=self.tr_neg_idx.copy()
-            self.coding_matrix=coding_matrix
-            #移除列
+            tr_pos_idx = self.tr_pos_idx.copy()
+            tr_neg_idx = self.tr_neg_idx.copy()
+            self.coding_matrix = coding_matrix
+            # 移除列
             tr_pos_idx.remove(tr_pos_idx[i])
             tr_neg_idx.remove(tr_neg_idx[i])
-            temp=coding_matrix.transpose().tolist()
+            temp = coding_matrix.transpose().tolist()
             temp.remove(temp[i])
-            self.coding_matrix=numpy.array(temp).transpose()
-            self.codingLength=codingLength-1
-            self.models = self.create_base_models_no_complexity(tr_data, tr_pos_idx, tr_neg_idx)
-            self.performance_matrix = self.create_performance_matrix(tr_data, tr_labels)
-            pre_label_matrix, accuracy=self.predict(ts_data,ts_labels)
+            self.coding_matrix = numpy.array(temp).transpose()
+            self.codingLength = codingLength-1
+            self.models = self.create_base_models_no_complexity(
+                tr_data, tr_pos_idx, tr_neg_idx)
+            self.performance_matrix = self.create_performance_matrix(
+                tr_data, tr_labels)
+            pre_label_matrix, accuracy = self.predict(ts_data, ts_labels)
             self.accuracyList.append(accuracy)
-        
+
         # 比较前10列
-        posCol=[]
-        negCol=[]
+        posCol = []
+        negCol = []
         for i in range(codingLength):
-            if self.accuracyList[i]-pre_accuracy<=0:
+            if self.accuracyList[i]-pre_accuracy <= 0:
                 posCol.append(i)
             else:
                 negCol.append(i)
         print("积极列：")
         for item in posCol:
-            print(str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
+            print(
+                str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
         print("消极列：")
         for item in negCol:
-            print(str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
+            print(
+                str(self.accuracyList[item]-pre_accuracy)+" "+str(self.complexity[item]))
 
-        
     def reshape(self, times, tr_data, tr_labels):
-        coding_matrix=[]
+        coding_matrix = []
         for i in range(times):
             print(tr_labels.shape[0])
             temp_coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
-                    tr_data.copy(), tr_labels.copy())
-            temp_complexity_list=[]
+                tr_data.copy(), tr_labels.copy())
+            temp_complexity_list = []
             for i in range(self.codingLength):
                 pos_inst = tr_data[tr_pos_idx[i]]
                 neg_inst = tr_data[tr_neg_idx[i]]
@@ -359,6 +451,6 @@ class RandPLECOC(BasePLECOC):
                     (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
                 temp_complexity = getDataComplexitybyCol(tr_inst, tr_labels)
                 temp_complexity_list.append(temp_complexity)
-            print(temp_complexity_list)    
+            print(temp_complexity_list)
             # f1_mean=np.array(temp_complexity_list).mean(axis=1)
             # print(f1_mean)
