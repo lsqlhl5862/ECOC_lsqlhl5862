@@ -148,6 +148,31 @@ class RandPLECOC(BasePLECOC):
         coding_matrix = (coding_matrix * 2 - 1).T
         return coding_matrix, tr_pos_idx, tr_neg_idx
 
+    def create_fs_base_models(self, tr_data, tr_pos_idx, tr_neg_idx, num_feature,tv_data,tv_labels):
+        models = []
+        # self.complexity=[]
+        for i in range(self.codingLength):
+            pos_inst = tr_data[tr_pos_idx[i]]
+            neg_inst = tr_data[tr_neg_idx[i]]
+            tr_inst = np.vstack((pos_inst, neg_inst))
+            tr_labels = np.hstack(
+                (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+            # temp=getDataComplexitybyCol(tr_inst,tr_labels)
+            # self.complexity.append(temp)
+            # model = self.estimator().fit(tr_inst, tr_labels)
+
+            # 使用PLFS
+            plfs = PLFeatureSelection(num_feature)
+            plfs.fit(tr_inst, tr_labels,tv_data,tv_labels,self.coding_matrix[:,i],self.params)
+            self.fs_models.append(plfs)
+            # libsvm 使用的训练方式
+            prob = svm_problem(tr_labels.tolist(),
+                               plfs.transform(tr_inst).tolist())
+            param = svm_parameter(self.params.get('svm_param'))
+            model = svm_train(prob, param)
+            models.append(model)
+        return models
+
     def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx, num_feature):
         models = []
         # self.complexity=[]
@@ -163,29 +188,11 @@ class RandPLECOC(BasePLECOC):
 
             # 使用PLFS
             plfs = PLFeatureSelection(num_feature)
-            plfs.fit(tr_inst, tr_labels)
+            plfs.fit(tr_inst, tr_labels,tv_data,tv_labels)
             self.fs_models.append(plfs)
             # libsvm 使用的训练方式
             prob = svm_problem(tr_labels.tolist(),
                                plfs.transform(tr_inst).tolist())
-            param = svm_parameter(self.params.get('svm_param'))
-            model = svm_train(prob, param)
-            models.append(model)
-        return models
-
-    def create_base_models_no_complexity(self, tr_data, tr_pos_idx, tr_neg_idx):
-        models = []
-        for i in range(self.codingLength):
-            pos_inst = tr_data[tr_pos_idx[i]]
-            neg_inst = tr_data[tr_neg_idx[i]]
-            tr_inst = np.vstack((pos_inst, neg_inst))
-            tr_labels = np.hstack(
-                (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
-            # temp=getDataComplexitybyCol(tr_inst,tr_labels)
-            # self.complexity.append(temp)
-            # model = self.estimator().fit(tr_inst, tr_labels)
-            # libsvm 使用的训练方式
-            prob = svm_problem(tr_labels.tolist(), tr_inst.tolist())
             param = svm_parameter(self.params.get('svm_param'))
             model = svm_train(prob, param)
             models.append(model)
@@ -217,7 +224,7 @@ class RandPLECOC(BasePLECOC):
             tr_data, tr_labels)
         print(self.performance_matrix.shape)
 
-    def fit_predict(self, tr_data, tr_labels, ts_data, ts_labels, pre_knn):
+    def fit_predict(self, tr_data, tr_labels, ts_data, ts_labels,tv_data,tv_labels, pre_knn):
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_integrity_coding_matrix(
             tr_data, tr_labels)
         self.tr_pos_idx = tr_pos_idx
@@ -227,16 +234,15 @@ class RandPLECOC(BasePLECOC):
         #     repeat=15
         repeat = int(1)
         temp = []
-        for i in range(repeat):
-            self.models = self.create_base_models(
-                tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1]-i)
-            self.performance_matrix = self.create_performance_matrix(
-                tr_data, tr_labels)
-            print(self.performance_matrix.shape)
-            matrix, base_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
-                ts_data, ts_labels, pre_knn)
-            temp.append([base_accuracy, knn_accuracy,
-                         com_1_accuracy, com_2_accuracy])
+        self.models = self.create_fs_base_models(
+            tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1],tv_data,tv_labels)
+        self.performance_matrix = self.create_performance_matrix(
+            tr_data, tr_labels)
+        print(self.performance_matrix.shape)
+        matrix, base_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
+            ts_data, ts_labels, pre_knn)
+        temp.append([base_accuracy, knn_accuracy,
+                        com_1_accuracy, com_2_accuracy])
         return temp
 
     def predict(self, ts_data, ts_labels, pre_knn):

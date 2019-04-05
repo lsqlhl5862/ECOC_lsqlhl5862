@@ -70,8 +70,8 @@ def run_birdsong():
             # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
             true_labels = mat['target'].toarray()
             true_labels = true_labels.astype(np.int)
-            # tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
             tr_data=preprocessing.StandardScaler().fit_transform(tr_data)
+            # tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
             tr_idx, ts_idx,tv_idx = Tools.tr_ts_split_idx(tr_data)
             split_tr_data, split_ts_data,split_tv_data = tr_data[tr_idx], tr_data[ts_idx],tr_data[tv_idx]
             split_tr_labels, split_ts_labels,split_tv_labels = tr_labels[:,
@@ -89,7 +89,7 @@ def run_birdsong():
             # pre_label_matrix,base_accuracy,knn_accuracy,com_accuracy = pl_ecoc.predict(
             #     split_ts_data, split_ts_labels,pre_knn)
 
-            result=pl_ecoc.fit_predict(split_tr_data, split_tr_labels,split_ts_data, split_ts_labels,pre_knn)
+            result=pl_ecoc.fit_predict(split_tr_data, split_tr_labels,split_ts_data, split_ts_labels,split_tv_data,split_tv_labels,pre_knn)
             for index in range(len(result)):
                 print(str(index)+": "+str(result[index]))
             knn_accuracy=result[0][1]
