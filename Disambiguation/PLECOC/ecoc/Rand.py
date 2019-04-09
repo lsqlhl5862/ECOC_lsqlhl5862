@@ -173,7 +173,7 @@ class RandPLECOC(BasePLECOC):
             models.append(model)
         return models
 
-    def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx, num_feature):
+    def create_base_models(self, tr_data, tr_pos_idx, tr_neg_idx):
         models = []
         # self.complexity=[]
         for i in range(self.codingLength):
@@ -186,13 +186,13 @@ class RandPLECOC(BasePLECOC):
             # self.complexity.append(temp)
             # model = self.estimator().fit(tr_inst, tr_labels)
 
-            # 使用PLFS
-            plfs = PLFeatureSelection(num_feature)
-            plfs.fit(tr_inst, tr_labels,tv_data,tv_labels)
-            self.fs_models.append(plfs)
+            # # 使用PLFS
+            # plfs = PLFeatureSelection(num_feature)
+            # plfs.fit(tr_inst, tr_labels,tv_data,tv_labels)
+            # self.fs_models.append(plfs)
             # libsvm 使用的训练方式
             prob = svm_problem(tr_labels.tolist(),
-                               plfs.transform(tr_inst).tolist())
+                               tr_inst.tolist())
             param = svm_parameter(self.params.get('svm_param'))
             model = svm_train(prob, param)
             models.append(model)
@@ -206,6 +206,21 @@ class RandPLECOC(BasePLECOC):
             test_label_vector = np.ones(tr_data.shape[0])
             p_labels, _, _ = svm_predict(
                 test_label_vector, self.fs_models[i].transform(tr_data).tolist(), model)
+            p_labels = [int(i) for i in p_labels]
+            for j in range(self.num_class):
+                label_class_j = np.array(p_labels)[tr_labels[j, :] == 1]
+                performance_matrix[j, i] = np.abs(sum(label_class_j[label_class_j ==
+                                                                    self.coding_matrix[j, i]])/label_class_j.shape[0])
+        return performance_matrix / np.transpose(np.tile(performance_matrix.sum(axis=1), (performance_matrix.shape[1], 1)))
+
+    def create_base_performance_matrix(self, tr_data, tr_labels):
+        performance_matrix = np.zeros((self.num_class, self.codingLength))
+        for i in range(self.codingLength):
+            model = self.base_models[i]
+            # p_labels = model.predict(tr_data)
+            test_label_vector = np.ones(tr_data.shape[0])
+            p_labels, _, _ = svm_predict(
+                test_label_vector, tr_data.tolist(), model)
             p_labels = [int(i) for i in p_labels]
             for j in range(self.num_class):
                 label_class_j = np.array(p_labels)[tr_labels[j, :] == 1]
@@ -232,19 +247,23 @@ class RandPLECOC(BasePLECOC):
         # repeat=int(tr_data.shape[1]/3)
         # if(repeat>15):
         #     repeat=15
-        repeat = int(1)
         temp = []
+        self.base_models = self.create_base_models(
+            tr_data, tr_pos_idx, tr_neg_idx)
         self.models = self.create_fs_base_models(
             tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1],tv_data,tv_labels)
+        self.base_performance_matrix = self.create_performance_matrix(
+            tr_data, tr_labels)
         self.performance_matrix = self.create_performance_matrix(
             tr_data, tr_labels)
         print(self.performance_matrix.shape)
-        matrix, base_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
+        matrix, base_accuracy,base_com_1_accuracy = self.base_predict(
+            ts_data, ts_labels,pre_knn)
+        matrix, base_fs_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
             ts_data, ts_labels, pre_knn)
-        temp.append([base_accuracy, knn_accuracy,
+        temp.append([base_accuracy,base_com_1_accuracy,base_fs_accuracy, knn_accuracy,
                         com_1_accuracy, com_2_accuracy])
         return temp
-
     def predict(self, ts_data, ts_labels, pre_knn):
         bin_pre = None
         decision_pre = None
@@ -307,18 +326,13 @@ class RandPLECOC(BasePLECOC):
 
         print(base_accuracy)
 
-        pre_label_matrix = pre_knn.getPredictMatrix()
-        count = 0
-        for i in range(ts_data.shape[0]):
-            max_idx1 = np.argmax(pre_label_matrix[:, i])
-            max_idx2 = np.argmax(ts_labels[:, i])
-            if max_idx1 == max_idx2:
-                count = count+1
-        knn_accuracy = count / ts_data.shape[0]
+        _,knn_accuracy,pre_knn_matrix=pre_knn.predict(ts_data,ts_labels)
         print(knn_accuracy)
 
-        pre_knn_matrix = pre_knn.getPreKnnMatrix()
-        output_1_value = output_value+pre_knn_matrix
+        tv_data,tv_labels=pre_knn.getValidationData()
+        _,tv_knn_accuracy,_=pre_knn.predict(ts_data,ts_labels)
+        tv_base_accuracy=self.fs_base_predict(tv_data,tv_labels)
+        output_1_value = output_value*(tv_base_accuracy)/(tv_knn_accuracy+tv_base_accuracy)+pre_knn_matrix*(tv_knn_accuracy)/(tv_knn_accuracy+tv_base_accuracy)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_1_value[:, i] == max(output_1_value[:, i])
@@ -333,7 +347,6 @@ class RandPLECOC(BasePLECOC):
         com_1_accuracy = count / ts_data.shape[0]
         print(com_1_accuracy)
 
-        pre_knn_matrix = pre_knn.getPreKnnMatrix()
         output_2_value = pre_knn_matrix*output_value
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
@@ -366,6 +379,53 @@ class RandPLECOC(BasePLECOC):
         # print(com_accuracy)
 
         return pre_label_matrix, round(base_accuracy, 4), round(knn_accuracy, 4), round(com_1_accuracy, 4), round(com_2_accuracy, 4)
+
+    def base_validation_predict(self, ts_data,ts_labels):
+        bin_pre = None
+        decision_pre = None
+        for i in range(self.codingLength):
+            model = self.base_models[i]
+            test_label_vector = np.ones(ts_data.shape[0])
+            p_labels, _, p_vals = svm_predict(
+                test_label_vector, ts_data.tolist(), model)
+            # p_labels = model.predict(ts_data)
+            # p_vals = model.decision_function(ts_data)
+            # p_vals = model.score(ts_data)
+
+            bin_pre = p_labels if bin_pre is None else np.vstack(
+                (bin_pre, p_labels))
+            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack(
+                (decision_pre, np.array(p_vals).T))
+
+        output_value = np.zeros((self.num_class, ts_data.shape[0]))
+
+        for i in range(ts_data.shape[0]):
+            bin_pre_tmp = bin_pre[:, i]
+            decision_pre_tmp = decision_pre[:, i]
+            for j in range(self.num_class):
+                code = self.coding_matrix[j, :]
+                common = np.int8(
+                    bin_pre_tmp == code) * self.base_performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+                error = np.int8(
+                    bin_pre_tmp != code) * self.base_performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+                output_value[j, i] = -sum(common)-sum(error)
+
+        output_value = preprocessing.MinMaxScaler().fit_transform(output_value)
+        
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_value[:, i] == max(output_value[:, i])
+            pre_label_matrix[idx, i] = 1
+
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        base_accuracy = count / ts_data.shape[0]
+
+        return round(base_accuracy, 4)
 
     def repredict(self, ts_data):
         bin_pre = None
@@ -460,3 +520,131 @@ class RandPLECOC(BasePLECOC):
             print(temp_complexity_list)
             # f1_mean=np.array(temp_complexity_list).mean(axis=1)
             # print(f1_mean)
+    def fs_base_predict(self,ts_data,ts_labels):
+        bin_pre = None
+        decision_pre = None
+        for i in range(self.codingLength):
+            model = self.models[i]
+            fs_model = self.fs_models[i]
+            test_label_vector = np.ones(ts_data.shape[0])
+            p_labels, _, p_vals = svm_predict(
+                test_label_vector, fs_model.transform(ts_data).tolist(), model)
+            # p_labels = model.predict(ts_data)
+            # p_vals = model.decision_function(ts_data)
+            # p_vals = model.score(ts_data)
+
+            bin_pre = p_labels if bin_pre is None else np.vstack(
+                (bin_pre, p_labels))
+            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack(
+                (decision_pre, np.array(p_vals).T))
+
+        output_value = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            bin_pre_tmp = bin_pre[:, i]
+            decision_pre_tmp = decision_pre[:, i]
+            for j in range(self.num_class):
+                code = self.coding_matrix[j, :]
+                common = np.int8(
+                    bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+                error = np.int8(
+                    bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+                output_value[j, i] = -sum(common)-sum(error)
+
+        output_value = preprocessing.MinMaxScaler().fit_transform(output_value)
+        # count_common=0
+        # for i in range(len(common_list)):
+        #     if(np.array_equal(common_list[i],temp_common)):
+        #         count_common+=1
+        # print(count_common)
+        # for i in range(ts_data.shape[0]):
+        #     bin_pre_tmp = bin_pre[:, i]
+        #     decision_pre_tmp = decision_pre[:, i]
+        #     for j in range(self.num_class):
+        #         code = self.coding_matrix[j, :]
+        #         common = np.int8(bin_pre_tmp == code) * self.performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+        #         if(j==pre_labels[i]):
+        #             self.data_decode.set_cols_list(np.where(common==0),np.where(common!=0))
+        #         error = np.int8(bin_pre_tmp != code) * self.performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+        #         output_value[j, i] = -sum(common)-sum(error)
+
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_value[:, i] == max(output_value[:, i])
+            pre_label_matrix[idx, i] = 1
+
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        base_accuracy = count / ts_data.shape[0]
+
+        return base_accuracy
+
+    def base_predict(self, ts_data,ts_labels,pre_knn):
+        bin_pre = None
+        decision_pre = None
+        for i in range(self.codingLength):
+            model = self.base_models[i]
+            test_label_vector = np.ones(ts_data.shape[0])
+            p_labels, _, p_vals = svm_predict(
+                test_label_vector, ts_data.tolist(), model)
+            # p_labels = model.predict(ts_data)
+            # p_vals = model.decision_function(ts_data)
+            # p_vals = model.score(ts_data)
+
+            bin_pre = p_labels if bin_pre is None else np.vstack(
+                (bin_pre, p_labels))
+            decision_pre = np.array(p_vals).T if decision_pre is None else np.vstack(
+                (decision_pre, np.array(p_vals).T))
+
+        output_value = np.zeros((self.num_class, ts_data.shape[0]))
+
+        for i in range(ts_data.shape[0]):
+            bin_pre_tmp = bin_pre[:, i]
+            decision_pre_tmp = decision_pre[:, i]
+            for j in range(self.num_class):
+                code = self.coding_matrix[j, :]
+                common = np.int8(
+                    bin_pre_tmp == code) * self.base_performance_matrix[j, :] / np.exp(np.abs(decision_pre_tmp))
+                error = np.int8(
+                    bin_pre_tmp != code) * self.base_performance_matrix[j, :] * np.exp(np.abs(decision_pre_tmp))
+                output_value[j, i] = -sum(common)-sum(error)
+
+        output_value = preprocessing.MinMaxScaler().fit_transform(output_value)
+        
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_value[:, i] == max(output_value[:, i])
+            pre_label_matrix[idx, i] = 1
+
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        base_accuracy = count / ts_data.shape[0]
+
+        _,_,pre_knn_matrix=pre_knn.predict(ts_data,ts_labels)
+
+        tv_data,tv_labels=pre_knn.getValidationData()
+        _,tv_knn_accuracy,_=pre_knn.predict(ts_data,ts_labels)
+        tv_base_accuracy=self.base_validation_predict(tv_data,tv_labels)
+        output_1_value = output_value*(tv_base_accuracy)/(tv_knn_accuracy+tv_base_accuracy)+pre_knn_matrix*(tv_knn_accuracy)/(tv_knn_accuracy+tv_base_accuracy)
+        pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
+        for i in range(ts_data.shape[0]):
+            idx = output_1_value[:, i] == max(output_1_value[:, i])
+            pre_label_matrix[idx, i] = 1
+
+        count = 0
+        for i in range(ts_data.shape[0]):
+            max_idx1 = np.argmax(pre_label_matrix[:, i])
+            max_idx2 = np.argmax(ts_labels[:, i])
+            if max_idx1 == max_idx2:
+                count = count+1
+        com_1_accuracy = count / ts_data.shape[0]
+        print(com_1_accuracy)
+
+        return pre_label_matrix,round(base_accuracy, 4),round(com_1_accuracy, 4)

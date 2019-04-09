@@ -51,8 +51,8 @@ def run_birdsong():
     ite = 1
     i = 0
     name = 'pl'
-    # mat_list=["MSRCv2","lost"]
-    mat_list=["MSRCv2",]
+    # mat_list=["MSRCv2","lost","BirdSong"]
+    mat_list=["BirdSong",]
     for item in mat_list:
         accuracies=[]
         for i in range(ite):
@@ -78,9 +78,9 @@ def run_birdsong():
                                                         tr_idx], true_labels[:, ts_idx],true_labels[:,tv_idx]
             
             #测试PreKNN
-            pre_knn=PreKNN(split_tr_labels)
+            pre_knn=PreKNN(split_tr_labels,split_tv_data,split_tv_labels)
             pre_knn.fit(split_tr_data,split_tr_labels)
-            pre_knn.predict(split_ts_data)
+            # pre_knn.predict(split_ts_data)
             
             # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
             pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
