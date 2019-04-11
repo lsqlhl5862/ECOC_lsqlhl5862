@@ -21,6 +21,7 @@ class RandPLECOC(BasePLECOC):
         self.performance_matrix = None
         self.params = params
         self.fs_models = []
+        self.plfs=None
 
     def create_integrity_coding_matrix(self, tr_data, tr_labels):
         num_tr = tr_data.shape[0]
@@ -29,9 +30,14 @@ class RandPLECOC(BasePLECOC):
         self.min_num_tr = int(np.ceil(0.1 * num_tr))
 
         coding_matrix = None
+        final_coding_matrix=None
         counter = 0
+        tmp_counter=0
+        tmp_counter_iter=int(np.ceil(self.codingLength/4))
         tr_pos_idx = []
         tr_neg_idx = []
+        final_tr_pos_idx=[]
+        final_tr_neg_idx=[]
         tr_data_flag=np.zeros(num_tr)
 
         # test code start
@@ -43,11 +49,11 @@ class RandPLECOC(BasePLECOC):
         # test code end
         for i in range(self.max_iter):
             tmpcode = np.int8(np.random.rand(self.num_class) > 0.5)
-            if coding_matrix is not None:
-                tmp_code_matrix = np.vstack((coding_matrix, tmpcode))
+            if final_coding_matrix is not None:
+                tmp_code_matrix = np.vstack((final_coding_matrix, tmpcode))
                 while(_exist_same_row(tmp_code_matrix) or _exist_two_class(tmp_code_matrix)):
                     tmpcode = np.int8(np.random.rand(self.num_class) > 0.5)
-                    tmp_code_matrix = np.vstack((coding_matrix, tmpcode))
+                    tmp_code_matrix = np.vstack((final_coding_matrix, tmpcode))
             # tmpcode = test_code_matrix[:, i]
             tmp_pos_idx = []
             tmp_neg_idx = []
@@ -64,16 +70,35 @@ class RandPLECOC(BasePLECOC):
             num_neg = len(tmp_neg_idx)
 
             if (num_pos+num_neg >= self.min_num_tr) and (num_pos >= 5) and (num_neg >= 5) and (len(np.where(tmp_tr_data_flag==0)[0])==0 or len(np.where(tmp_tr_data_flag==0)[0])<len(np.where(tr_data_flag==0)[0])):
-                counter = counter + 1
+                tmp_counter = tmp_counter + 1
                 tr_pos_idx.append(tmp_pos_idx)
                 tr_neg_idx.append(tmp_neg_idx)
                 coding_matrix = tmpcode if coding_matrix is None else np.vstack(
                     (coding_matrix, tmpcode))
-                tr_data_flag=tmp_tr_data_flag
+                # tr_data_flag=tmp_tr_data_flag
 
-            if counter == self.codingLength:
+            if tmp_counter == tmp_counter_iter:
+                tmp_counter=0
+                high_score_list=self.plfs.matrix_test(coding_matrix,tr_pos_idx,tr_neg_idx)
+                if self.codingLength-counter<len(high_score_list):
+                    high_score_list=high_score_list[:self.codingLength-counter]
+                counter+=len(high_score_list)
+                final_coding_matrix= coding_matrix[high_score_list,:] if final_coding_matrix is None else np.vstack(
+                    (final_coding_matrix,coding_matrix[high_score_list,:]))
+                coding_matrix=None
+                for item in high_score_list:
+                    final_tr_pos_idx.append(tr_pos_idx[item])
+                    final_tr_neg_idx.append(tr_neg_idx[item])
+                    for index in tr_pos_idx[item]:
+                        tr_data_flag[index]+=1
+                    for index in tr_neg_idx[item]:
+                        tr_data_flag[index]+=1
+                tr_pos_idx=[]
+                tr_neg_idx=[]
+        
+            if counter >= self.codingLength:
+                self.codingLength=counter
                 break
-
         if counter != self.codingLength:
             raise ValueError(
                 'The required codeword length %s not satisfied', str(self.codingLength))
@@ -82,9 +107,9 @@ class RandPLECOC(BasePLECOC):
                 raise ValueError('Empty coding matrix')
         # dump_matrix = pd.DataFrame(coding_matrix.T)
         # dump_matrix.to_csv(csv_path, index=False, header=False)
-        coding_matrix = (coding_matrix * 2 - 1).T
+        final_coding_matrix = (final_coding_matrix * 2 - 1).T
         print(len(np.where(tr_data_flag==0)[0]))
-        return coding_matrix, tr_pos_idx, tr_neg_idx
+        return final_coding_matrix, final_tr_pos_idx, final_tr_neg_idx
 
     def create_coding_matrix(self, tr_data, tr_labels):
         num_tr = tr_data.shape[0]
@@ -133,7 +158,7 @@ class RandPLECOC(BasePLECOC):
                 #     (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
                 # temp = getDataComplexitybyCol(temp_tr_inst, temp_tr_labels)
                 # self.complexityList.append(temp)
-
+            
             if counter == self.codingLength:
                 break
 
@@ -162,12 +187,12 @@ class RandPLECOC(BasePLECOC):
             # model = self.estimator().fit(tr_inst, tr_labels)
 
             # 使用PLFS
-            plfs = PLFeatureSelection(num_feature)
-            plfs.fit(tr_inst, tr_labels,tv_data,tv_labels,self.coding_matrix[:,i],self.params)
-            self.fs_models.append(plfs)
+            # plfs = PLFeatureSelection(tr_data,tv_data,tv_labels)
+            fs_model=self.plfs.fit(tr_inst, tr_labels,self.coding_matrix[:,i])
+            self.fs_models.append(fs_model)
             # libsvm 使用的训练方式
             prob = svm_problem(tr_labels.tolist(),
-                               plfs.transform(tr_inst).tolist())
+                               fs_model.transform(tr_inst).tolist())
             param = svm_parameter(self.params.get('svm_param'))
             model = svm_train(prob, param)
             models.append(model)
@@ -240,6 +265,7 @@ class RandPLECOC(BasePLECOC):
         print(self.performance_matrix.shape)
 
     def fit_predict(self, tr_data, tr_labels, ts_data, ts_labels,tv_data,tv_labels, pre_knn):
+        self.plfs = PLFeatureSelection(tr_data,tr_labels,tv_data,tv_labels,self.params)
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_integrity_coding_matrix(
             tr_data, tr_labels)
         self.tr_pos_idx = tr_pos_idx
