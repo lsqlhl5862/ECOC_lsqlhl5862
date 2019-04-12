@@ -287,8 +287,12 @@ class RandPLECOC(BasePLECOC):
             ts_data, ts_labels,pre_knn)
         matrix, base_fs_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
             ts_data, ts_labels, pre_knn)
-        temp.append([base_accuracy,base_com_1_accuracy,base_fs_accuracy, knn_accuracy,
-                        com_1_accuracy, com_2_accuracy])
+        temp.append(base_accuracy),
+        temp.append(base_com_1_accuracy)
+        temp.append(base_fs_accuracy) 
+        temp.append(knn_accuracy)
+        temp.append(com_1_accuracy)
+        temp.append(com_2_accuracy)
         return temp
     def predict(self, ts_data, ts_labels, pre_knn):
         bin_pre = None
@@ -358,7 +362,7 @@ class RandPLECOC(BasePLECOC):
         tv_data,tv_labels=pre_knn.getValidationData()
         _,tv_knn_accuracy,_=pre_knn.predict(ts_data,ts_labels)
         tv_base_accuracy=self.fs_base_predict(tv_data,tv_labels)
-        output_1_value = output_value*(tv_base_accuracy)/(tv_knn_accuracy+tv_base_accuracy)+pre_knn_matrix*(tv_knn_accuracy)/(tv_knn_accuracy+tv_base_accuracy)
+        output_1_value = output_value*(tv_base_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)+pre_knn_matrix*(tv_knn_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_1_value[:, i] == max(output_1_value[:, i])
@@ -658,7 +662,7 @@ class RandPLECOC(BasePLECOC):
         tv_data,tv_labels=pre_knn.getValidationData()
         _,tv_knn_accuracy,_=pre_knn.predict(ts_data,ts_labels)
         tv_base_accuracy=self.base_validation_predict(tv_data,tv_labels)
-        output_1_value = output_value*(tv_base_accuracy)/(tv_knn_accuracy+tv_base_accuracy)+pre_knn_matrix*(tv_knn_accuracy)/(tv_knn_accuracy+tv_base_accuracy)
+        output_1_value = output_value*(tv_base_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)+pre_knn_matrix*(tv_knn_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_1_value[:, i] == max(output_1_value[:, i])

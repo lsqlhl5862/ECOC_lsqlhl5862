@@ -29,7 +29,7 @@ def read_mat(filepath, tr_key='train_data', tr_label_key='train_p_target',
 
 def run_sample():
     accuracies = []
-    ite = 1
+    ite = 10
     i = 0
     while i != ite:
         filepath = 'mat/sample data.mat'
@@ -48,13 +48,13 @@ def run_sample():
 def run_birdsong():
     start = time.time()
     accuracies = []
-    ite = 1
+    ite = 10
     i = 0
     name = 'pl'
     # mat_list=["MSRCv2","lost","BirdSong"]
-    mat_list=["BirdSong",]
+    mat_list=["MSRCv2",]
     for item in mat_list:
-        accuracies=[]
+        accuracies=None
         for i in range(ite):
             filepath = "mat/"+item+".mat"
             # filepath = 'mat/BirdSong.mat'        
@@ -90,14 +90,14 @@ def run_birdsong():
             #     split_ts_data, split_ts_labels,pre_knn)
 
             result=pl_ecoc.fit_predict(split_tr_data, split_tr_labels,split_ts_data, split_ts_labels,split_tv_data,split_tv_labels,pre_knn)
-            for index in range(len(result)):
-                print(str(index)+": "+str(result[index]))
-            knn_accuracy=result[0][1]
-            accuracies.append(result[0][0])
-            result=np.array(result)
-            result=result[:,0].T.tolist()
-            file_name=item+"_"+str(i+1)
-            draw_hist(file_name,result,"Knn_accuracy: "+str(knn_accuracy),"Features","Accuracy",0,1,0,1)
+            # for index in range(len(result)):
+            #     print(str(index)+": "+str(result[index]))
+            # knn_accuracy=result[1]
+            # accuracies.append(result)
+            # result=np.array(result)
+            # result=result[:,0].T.tolist()
+            # file_name=item+"_"+str(i+1)
+            # draw_hist(file_name,result,"Knn_accuracy: "+str(knn_accuracy),"Features","Accuracy",0,1,0,1)
             # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
             # del pl_ecoc
             # accuracies.append(com_accuracy)
@@ -107,6 +107,11 @@ def run_birdsong():
             # confusion = confusion_matrix(ts_vector.tolist(), pre_vector.tolist())
             # i = i+1
         file_name=item+"_mean"
+        accuracies=np.array(accuracies)
+        for index in range(accuracies.shape[0]):
+            print(str(index+1)+": "+str(accuracies[index,:]))
+        for index in range(accuracies.shape[1]):
+            print(str(index+1)+"列平均值: "+str(np.mean(accuracies[:,index])))
         # draw_hist(file_name,accuracies,item+"_mean:"+str(np.mean(accuracies))," ","Accuracy",0,1,0,1)
         # print(name + '_ECOC finish')
         # print('耗时: {:>10.2f} minutes'.format((time.time()-start)/60))
