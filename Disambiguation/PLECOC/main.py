@@ -132,7 +132,7 @@ def run_birdsong():
         for index in range(accuracies.shape[0]):
             print(str(index+1)+": "+str(accuracies[index, :]))
         for index in range(accuracies.shape[1]):
-            print(str(index+1)+"列平均值: "+str(np.mean(accuracies[:, index])))
+            print(str(index+1)+"列mean: "+str(np.mean(accuracies[:, index]))+" max:"+str(np.max(accuracies[:, index]))+" min:"+str(np.min(accuracies[:, index])))
         # draw_hist(file_name,accuracies,item+"_mean:"+str(np.mean(accuracies))," ","Accuracy",0,1,0,1)
         # print(name + '_ECOC finish')
         # print('耗时: {:>10.2f} minutes'.format((time.time()-start)/60))
