@@ -51,71 +51,88 @@ def run_birdsong():
     ite = 10
     i = 0
     name = 'pl'
-    skf=StratifiedKFold(n_splits=2)
     # mat_list=["MSRCv2","lost","BirdSong"]
-    mat_list=["MSRCv2",]
+    mat_list = ["MSRCv2", ]
+    skf = StratifiedKFold(n_splits=10)
     for item in mat_list:
-        accuracies=None
-        for i in range(ite):
-            filepath = "mat/"+item+".mat"
-            # filepath = 'mat/BirdSong.mat'        
-            mat = io.loadmat(filepath)
-            tr_data = mat['data']
-            print(tr_data.shape)
-            tr_labels = mat['partial_target'].toarray()
-            tr_labels = tr_labels.astype(np.int)
-            # print(tr_labels)
-            print(tr_labels.shape)
+        accuracies = None
+        filepath = "mat/"+item+".mat"
+        # filepath = 'mat/BirdSong.mat'
+        mat = io.loadmat(filepath)
+        tr_data = mat['data']
+        print(tr_data.shape)
+        tr_labels = mat['partial_target'].toarray()
+        tr_labels = tr_labels.astype(np.int)
+        # print(tr_labels)
+        print(tr_labels.shape)
 
+        # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
+        true_labels = mat['target'].toarray()
+        true_labels = true_labels.astype(np.int)
+        tr_data = preprocessing.MinMaxScaler().fit_transform(tr_data)
+        tr_data = preprocessing.StandardScaler().fit_transform(tr_data)
 
-            # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
-            true_labels = mat['target'].toarray()
-            true_labels = true_labels.astype(np.int)
-            tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
-            tr_data=preprocessing.StandardScaler().fit_transform(tr_data)
+        # K折交叉验证
+
+        X = tr_data
+        y=np.zeros(true_labels.shape[1])
+        for index in range(true_labels.shape[1]):
+            y[index]=np.argmax(true_labels[:,index])
+        for tr_idx, ts_idx in skf.split(X, y):
             # tr_data=preprocessing.scale().fit_transform(tr_data)
-            tr_idx, ts_idx,tv_idx = Tools.tr_ts_split_idx(tr_data)
-            split_tr_data, split_ts_data,split_tv_data = tr_data[tr_idx], tr_data[ts_idx],tr_data[tv_idx]
-            split_tr_labels, split_ts_labels,split_tv_labels = tr_labels[:,
-                                                        tr_idx], true_labels[:, ts_idx],true_labels[:,tv_idx]
+            # tr_idx, ts_idx, tv_idx = Tools.tr_ts_split_idx(tr_data)
+            tmp_skf = StratifiedKFold(n_splits=9)
+            split_tr_data, split_ts_data = tr_data[tr_idx], tr_data[ts_idx]
+            split_tr_labels, split_ts_labels = y[tr_idx], true_labels[:, ts_idx]
+            tmp_true_labels=true_labels[:,tr_idx]
+            tmp_tr_labels=tr_labels[:,tr_idx]
             
-            #测试PreKNN
-            pre_knn=PreKNN(split_tr_labels,split_tv_data,split_tv_labels)
-            pre_knn.fit(split_tr_data,split_tr_labels)
-            # pre_knn.predict(split_ts_data)
+            for tr_idx,tv_idx in tmp_skf.split(split_tr_data,split_tr_labels):
             
-            # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
-            pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
-            # pl_ecoc.fit(split_tr_data, split_tr_labels)
+                split_tr_data, split_tv_data = split_tr_data[tr_idx], split_tr_data[tv_idx]
+                split_tr_labels, split_tv_labels = tmp_tr_labels[:,
+                                                                tr_idx], tmp_true_labels[:, tv_idx]
 
-            # pre_label_matrix,base_accuracy,knn_accuracy,com_accuracy = pl_ecoc.predict(
-            #     split_ts_data, split_ts_labels,pre_knn)
+                # 测试PreKNN
+                pre_knn = PreKNN(split_tr_labels, split_tv_data, split_tv_labels)
+                pre_knn.fit(split_tr_data, split_tr_labels)
+                # pre_knn.predict(split_ts_data)
 
-            result=pl_ecoc.fit_predict(split_tr_data, split_tr_labels,split_ts_data, split_ts_labels,split_tv_data,split_tv_labels,pre_knn)
-            result=np.array(result).T
-            accuracies=result if accuracies is None else np.vstack((accuracies,result))
-            # for index in range(len(result)):
-            #     print(str(index)+": "+str(result[index]))
-            # knn_accuracy=result[1]
-            # accuracies.append(result)
-            # result=np.array(result)
-            # result=result[:,0].T.tolist()
-            # file_name=item+"_"+str(i+1)
-            # draw_hist(file_name,result,"Knn_accuracy: "+str(knn_accuracy),"Features","Accuracy",0,1,0,1)
-            # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
-            del pl_ecoc
-            # accuracies.append(com_accuracy)
-            # data_class = np.array(range(split_ts_labels.shape[0]))
-            # ts_vector = np.dot(data_class, split_ts_labels)
-            # pre_vector = np.dot(data_class, pre_label_matrix)
-            # confusion = confusion_matrix(ts_vector.tolist(), pre_vector.tolist())
-            # i = i+1
-        file_name=item+"_mean"
+                # tr_data, tr_labels, ts_data, ts_labels = read_mat(filepath, tr_key='data', tr_label_key='partial_target')
+                pl_ecoc = Rand.RandPLECOC(libsvm, svm_param='-t 2 -c 1')
+                # pl_ecoc.fit(split_tr_data, split_tr_labels)
+
+                # pre_label_matrix,base_accuracy,knn_accuracy,com_accuracy = pl_ecoc.predict(
+                #     split_ts_data, split_ts_labels,pre_knn)
+
+                result = pl_ecoc.fit_predict(
+                    split_tr_data, split_tr_labels, split_ts_data, split_ts_labels, split_tv_data, split_tv_labels, pre_knn)
+                result = np.array(result).T
+                accuracies = result if accuracies is None else np.vstack(
+                    (accuracies, result))
+                # for index in range(len(result)):
+                #     print(str(index)+": "+str(result[index]))
+                # knn_accuracy=result[1]
+                # accuracies.append(result)
+                # result=np.array(result)
+                # result=result[:,0].T.tolist()
+                # file_name=item+"_"+str(i+1)
+                # draw_hist(file_name,result,"Knn_accuracy: "+str(knn_accuracy),"Features","Accuracy",0,1,0,1)
+                # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
+                del pl_ecoc
+                # accuracies.append(com_accuracy)
+                # data_class = np.array(range(split_ts_labels.shape[0]))
+                # ts_vector = np.dot(data_class, split_ts_labels)
+                # pre_vector = np.dot(data_class, pre_label_matrix)
+                # confusion = confusion_matrix(ts_vector.tolist(), pre_vector.tolist())
+                # i = i+1
+                break
+        file_name = item+"_mean"
         # accuracies=np.array(accuracies)
         for index in range(accuracies.shape[0]):
-            print(str(index+1)+": "+str(accuracies[index,:]))
+            print(str(index+1)+": "+str(accuracies[index, :]))
         for index in range(accuracies.shape[1]):
-            print(str(index+1)+"列平均值: "+str(np.mean(accuracies[:,index])))
+            print(str(index+1)+"列平均值: "+str(np.mean(accuracies[:, index])))
         # draw_hist(file_name,accuracies,item+"_mean:"+str(np.mean(accuracies))," ","Accuracy",0,1,0,1)
         # print(name + '_ECOC finish')
         # print('耗时: {:>10.2f} minutes'.format((time.time()-start)/60))
@@ -125,7 +142,7 @@ def run_birdsong():
         # print('min = ' + str(min(accuracies)))
 
 
-def draw_hist(file_name,myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
+def draw_hist(file_name, myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
     name_list = list(range(len(myList)))
     plt.figure()
     # name_list.reverse()
