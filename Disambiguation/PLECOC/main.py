@@ -48,7 +48,7 @@ def run_sample():
 def run_birdsong():
     start = time.time()
     accuracies = []
-    ite = 10
+    ite = 20
     i = 0
     name = 'pl'
     # mat_list=["MSRCv2","lost","BirdSong"]
@@ -90,6 +90,8 @@ def run_birdsong():
             #     split_ts_data, split_ts_labels,pre_knn)
 
             result=pl_ecoc.fit_predict(split_tr_data, split_tr_labels,split_ts_data, split_ts_labels,split_tv_data,split_tv_labels,pre_knn)
+            result=np.array(result).T
+            accuracies=result if accuracies is None else np.vstack((accuracies,result))
             # for index in range(len(result)):
             #     print(str(index)+": "+str(result[index]))
             # knn_accuracy=result[1]
@@ -107,7 +109,7 @@ def run_birdsong():
             # confusion = confusion_matrix(ts_vector.tolist(), pre_vector.tolist())
             # i = i+1
         file_name=item+"_mean"
-        accuracies=np.array(accuracies)
+        # accuracies=np.array(accuracies)
         for index in range(accuracies.shape[0]):
             print(str(index+1)+": "+str(accuracies[index,:]))
         for index in range(accuracies.shape[1]):
