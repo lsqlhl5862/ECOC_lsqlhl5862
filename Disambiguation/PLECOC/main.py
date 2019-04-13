@@ -7,7 +7,7 @@ from scipy import io
 from svmutil import *
 from tools import Tools
 from sklearn.metrics import confusion_matrix
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 from sklearn import preprocessing
 from matplotlib import pyplot as plt
 from ecoc.PreKNN import PreKNN
@@ -29,7 +29,7 @@ def read_mat(filepath, tr_key='train_data', tr_label_key='train_p_target',
 
 def run_sample():
     accuracies = []
-    ite = 10
+    ite = 5
     i = 0
     while i != ite:
         filepath = 'mat/sample data.mat'
@@ -48,9 +48,10 @@ def run_sample():
 def run_birdsong():
     start = time.time()
     accuracies = []
-    ite = 20
+    ite = 10
     i = 0
     name = 'pl'
+    skf=StratifiedKFold(n_splits=2)
     # mat_list=["MSRCv2","lost","BirdSong"]
     mat_list=["MSRCv2",]
     for item in mat_list:
@@ -70,8 +71,9 @@ def run_birdsong():
             # draw_hist(tr_labels.sum(axis=1).tolist(), 'class_distribution', 'class', 'number', 0, tr_labels.shape[0], 0, tr_labels.shape[1])
             true_labels = mat['target'].toarray()
             true_labels = true_labels.astype(np.int)
+            tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
             tr_data=preprocessing.StandardScaler().fit_transform(tr_data)
-            # tr_data=preprocessing.MinMaxScaler().fit_transform(tr_data)
+            # tr_data=preprocessing.scale().fit_transform(tr_data)
             tr_idx, ts_idx,tv_idx = Tools.tr_ts_split_idx(tr_data)
             split_tr_data, split_ts_data,split_tv_data = tr_data[tr_idx], tr_data[ts_idx],tr_data[tv_idx]
             split_tr_labels, split_ts_labels,split_tv_labels = tr_labels[:,
@@ -101,7 +103,7 @@ def run_birdsong():
             # file_name=item+"_"+str(i+1)
             # draw_hist(file_name,result,"Knn_accuracy: "+str(knn_accuracy),"Features","Accuracy",0,1,0,1)
             # pl_ecoc.refit_predict(split_tr_data,split_tr_labels,split_ts_data,split_ts_labels,accuracy)
-            # del pl_ecoc
+            del pl_ecoc
             # accuracies.append(com_accuracy)
             # data_class = np.array(range(split_ts_labels.shape[0]))
             # ts_vector = np.dot(data_class, split_ts_labels)

@@ -51,7 +51,7 @@ class RandPLECOC(BasePLECOC):
             tmpcode = np.int8(np.random.rand(self.num_class) > 0.5)
             if final_coding_matrix is not None:
                 tmp_code_matrix = np.vstack((final_coding_matrix, tmpcode))
-                while(_exist_same_row(tmp_code_matrix) or _exist_two_class(tmp_code_matrix)):
+                while _exist_same_row(tmp_code_matrix):
                     tmpcode = np.int8(np.random.rand(self.num_class) > 0.5)
                     tmp_code_matrix = np.vstack((final_coding_matrix, tmpcode))
             # tmpcode = test_code_matrix[:, i]
@@ -268,6 +268,8 @@ class RandPLECOC(BasePLECOC):
         self.plfs = PLFeatureSelection(tr_data,tr_labels,tv_data,tv_labels,self.params)
         self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_integrity_coding_matrix(
             tr_data, tr_labels)
+        # self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
+        #     tr_data, tr_labels)
         self.tr_pos_idx = tr_pos_idx
         self.tr_neg_idx = tr_neg_idx
         # repeat=int(tr_data.shape[1]/3)
@@ -360,7 +362,7 @@ class RandPLECOC(BasePLECOC):
         print(knn_accuracy)
 
         tv_data,tv_labels=pre_knn.getValidationData()
-        _,tv_knn_accuracy,_=pre_knn.predict(ts_data,ts_labels)
+        _,tv_knn_accuracy,_=pre_knn.predict(tv_data,tv_labels)
         tv_base_accuracy=self.fs_base_predict(tv_data,tv_labels)
         output_1_value = output_value*(tv_base_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)+pre_knn_matrix*(tv_knn_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
@@ -660,7 +662,7 @@ class RandPLECOC(BasePLECOC):
         _,_,pre_knn_matrix=pre_knn.predict(ts_data,ts_labels)
 
         tv_data,tv_labels=pre_knn.getValidationData()
-        _,tv_knn_accuracy,_=pre_knn.predict(ts_data,ts_labels)
+        _,tv_knn_accuracy,_=pre_knn.predict(tv_data,tv_labels)
         tv_base_accuracy=self.base_validation_predict(tv_data,tv_labels)
         output_1_value = output_value*(tv_base_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)+pre_knn_matrix*(tv_knn_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
