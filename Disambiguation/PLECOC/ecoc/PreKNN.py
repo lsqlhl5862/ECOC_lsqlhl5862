@@ -6,6 +6,8 @@ from FeatureSelection.FeatureSelector import BSSWSS
 from sklearn.svm import libsvm
 from svmutil import *
 import sklearn.metrics as metrics
+from DataComplexity.datacomplexity import get_data_complexity
+
 
 
 class PreKNN:
@@ -124,7 +126,7 @@ class PLFeatureSelection:
         mean_f1_score=f1_score_list.mean()
         high_score_list=np.where(f1_score_list>mean_f1_score)
         return high_score_list[0]
-    def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
+    def col_test_svm(self, tr_pos_idx, tr_neg_idx, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -192,8 +194,48 @@ class PLFeatureSelection:
         # fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
         # fs_model.fit(data, labels)
         return f1_score
+    def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
+        # coding_col=self.coding_col.tolist()
+        # for i in range(data.shape[0]):
+        #     temp_labels=np.where(labels[i,:]==1)[0]
+        #     num_pos=0
+        #     num_neg=0
+        #     for class_index in temp_labels:
+        #         if(coding_col[class_index]==1):
+        #             num_pos+=1
+        #         elif(coding_col[class_index]==-1):
+        #             num_neg+=1
+        #     print(num_pos)
+        tv_pos_idx = []
+        tv_neg_idx = []
+        tv_data_flag = np.zeros(self.tv_data.shape[0])
+        coding_col[np.where(coding_col == -1)[0]] = 0
+        #     print(num_neg)
+        for j in range(self.tv_data.shape[0]):
+            if np.all((self.tv_labels[:, j] & coding_col) == self.tv_labels[:, j]):
+                tv_pos_idx.append(j)
+                tv_data_flag[j] += 1
+            else:
+                if np.all((self.tv_labels[:, j] & np.int8(np.logical_not(coding_col))) == self.tv_labels[:, j]):
+                    tv_neg_idx.append(j)
+                    tv_data_flag[j] += 1
+        print(len(np.where(tv_data_flag == 0)[0]))
+        pos_inst = self.tv_data[tv_pos_idx]
+        neg_inst = self.tv_data[tv_neg_idx]
+        tv_inst = np.vstack((pos_inst, neg_inst))
+        tv_labels = np.hstack(
+            (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
 
-    def fit(self, data, labels, coding_col):
+        tr_pos_inst = self.tr_data[tr_pos_idx]
+        tr_neg_inst = self.tr_data[tr_neg_idx]
+        data = np.vstack((tr_pos_inst, tr_neg_inst))
+        labels = np.hstack(
+            (np.ones(len(tr_pos_inst)), -np.ones(len(tr_neg_inst))))
+
+        dc = get_data_complexity('N3')
+        return dc.score(data, labels)
+
+    def fit_svm(self, data, labels, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -261,6 +303,58 @@ class PLFeatureSelection:
         fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
         fs_model.fit(data, labels)
         return fs_model
+    def fit(self, data, labels, coding_col):
+        # coding_col=self.coding_col.tolist()
+        # for i in range(data.shape[0]):
+        #     temp_labels=np.where(labels[i,:]==1)[0]
+        #     num_pos=0
+        #     num_neg=0
+        #     for class_index in temp_labels:
+        #         if(coding_col[class_index]==1):
+        #             num_pos+=1
+        #         elif(coding_col[class_index]==-1):
+        #             num_neg+=1
+        #     print(num_pos)
+        tv_data = self.tv_data.copy()
+        tv_labels = self.tv_labels.copy()
+        tv_pos_idx = []
+        tv_neg_idx = []
+        tv_data_flag = np.zeros(tv_data.shape[0])
+        coding_col[np.where(coding_col == -1)[0]] = 0
+        #     print(num_neg)
+        for j in range(tv_data.shape[0]):
+            if np.all((tv_labels[:, j] & coding_col) == tv_labels[:, j]):
+                tv_pos_idx.append(j)
+                tv_data_flag[j] += 1
+            else:
+                if np.all((tv_labels[:, j] & np.int8(np.logical_not(coding_col))) == tv_labels[:, j]):
+                    tv_neg_idx.append(j)
+                    tv_data_flag[j] += 1
+        print(len(np.where(tv_data_flag == 0)[0]))
+        pos_inst = tv_data[tv_pos_idx]
+        neg_inst = tv_data[tv_neg_idx]
+        tv_inst = np.vstack((pos_inst, neg_inst))
+        tv_labels = np.hstack(
+            (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+
+        acc_list = np.zeros((self.num_features, 1))
+        tmp_f1_score = 0
+
+        for i in range(self.num_features):
+            fs_model = BSSWSS(k=self.num_features-i)  # remain 2 features.
+            fs_model.fit(data, labels)
+           
+            dc = get_data_complexity('N3')
+            f1_score=dc.score(fs_model.transform(data), labels)
+
+            acc_list[i] = f1_score
+            if(tmp_f1_score-f1_score > tmp_f1_score*self.decline_rate):
+                break
+            else:
+                tmp_f1_score = f1_score
+        fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:]))
+        fs_model.fit(data, labels)
+        return fs_model
 
     # def fit(self, data, labels, tv_data, tv_labels, coding_col, params):
         # coding_col=self.coding_col.tolist()
@@ -298,42 +392,9 @@ class PLFeatureSelection:
         for i in range(self.num_features):
             fs_model = BSSWSS(k=self.num_features-i)  # remain 2 features.
             fs_model.fit(data, labels)
-            prob = svm_problem(labels.tolist(),
-                               fs_model.transform(data).tolist())
-            param = svm_parameter(params.get('svm_param'))
-            model = svm_train(prob, param)
-            tmp_tv_inst = fs_model.transform(tv_inst)
-            p1, p2, p3 = svm_predict(
-                tv_labels, tmp_tv_inst.tolist(), model)
-        # 计算混淆矩阵
-            # tp=0
-            # fp=0
-            # tn=0
-            # fn=0
-            # for j in range(len(p1)):
-            #     if p1[j]==1 and tv_labels[j]==1:
-            #         tp+=1
-            #     elif p1[j]==1 and tv_labels[j]==-1:
-            #         fp+=1
-            #     elif p1[j]==-1 and tv_labels[j]==-1:
-            #         tn+=1
-            #     else:
-            #         fn+=1
-            # p=1
-            accuracy = p2[0]
-            # precision=tp / (tp + fp) if (tp+fp)!=0 else 0
-            # recall=tp/(tp+fn) if (tp+fn)!=0 else 0
-            # fscore=(1+p*p)*(precision*recall)/(p*p*(precision+recall)) if (precision+recall)!=0 else 0
-
-            acc_list[i][0] = accuracy
-            acc_list[i][1] = metrics.precision_score(tv_labels, p1)
-            acc_list[i][2] = metrics.recall_score(tv_labels, p1)
-            acc_list[i][3] = metrics.f1_score(tv_labels, p1)
-        print(str(np.argmax(acc_list[:, 0]))+"："+str(acc_list[:, 0].max()))
-        print(str(np.argmax(acc_list[:, 1]))+"："+str(acc_list[:, 1].max()))
-        print(str(np.argmax(acc_list[:, 2]))+"："+str(acc_list[:, 2].max()))
-        print(str(np.argmax(acc_list[:, 3]))+"："+str(acc_list[:, 3].max()))
-        self.fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
+            dc = get_data_complexity('N3')
+            acc_list[i]=dc.score(data, labels)
+        self.fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:]))
         self.fs_model.fit(data, labels)
 
     def transform(self, data):
