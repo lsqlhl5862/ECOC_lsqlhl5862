@@ -18,5 +18,5 @@ a = [1.0, 2.0]
 a = [int(e) for e in a]
 temp=[]
 a=1
-temp.append(2,3)
+temp.append([2,3])
 print(temp)
