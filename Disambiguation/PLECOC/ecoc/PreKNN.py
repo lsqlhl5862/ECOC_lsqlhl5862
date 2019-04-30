@@ -112,7 +112,7 @@ class PLFeatureSelection:
         self.tv_data = tv_data
         self.tv_labels = tv_labels
         self.params = params
-        self.decline_rate = 0.02
+        self.decline_rate = 0.005
 
     def matrix_test(self, matrix, tmp_tr_pos_idx, tmp_tr_neg_idx):
         f1_score_list = []
@@ -126,7 +126,7 @@ class PLFeatureSelection:
         mean_f1_score=f1_score_list.mean()
         high_score_list=np.where(f1_score_list>mean_f1_score)
         return high_score_list[0]
-    def col_test_svm(self, tr_pos_idx, tr_neg_idx, coding_col):
+    # def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -151,7 +151,7 @@ class PLFeatureSelection:
                 if np.all((self.tv_labels[:, j] & np.int8(np.logical_not(coding_col))) == self.tv_labels[:, j]):
                     tv_neg_idx.append(j)
                     tv_data_flag[j] += 1
-        print(len(np.where(tv_data_flag == 0)[0]))
+        # print(len(np.where(tv_data_flag == 0)[0]))
         pos_inst = self.tv_data[tv_pos_idx]
         neg_inst = self.tv_data[tv_neg_idx]
         tv_inst = np.vstack((pos_inst, neg_inst))
@@ -232,10 +232,10 @@ class PLFeatureSelection:
         labels = np.hstack(
             (np.ones(len(tr_pos_inst)), -np.ones(len(tr_neg_inst))))
 
-        dc = get_data_complexity('N3')
+        dc = get_data_complexity('F1')
         return dc.score(data, labels)
 
-    def fit_svm(self, data, labels, coding_col):
+    # def fit(self, data, labels, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -344,7 +344,7 @@ class PLFeatureSelection:
             fs_model = BSSWSS(k=self.num_features-i)  # remain 2 features.
             fs_model.fit(data, labels)
            
-            dc = get_data_complexity('N3')
+            dc = get_data_complexity('F3')
             f1_score=dc.score(fs_model.transform(data), labels)
 
             acc_list[i] = f1_score
