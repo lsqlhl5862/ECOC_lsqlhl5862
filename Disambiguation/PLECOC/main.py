@@ -91,7 +91,7 @@ def run_birdsong():
             
                 split_tr_data, split_tv_data = split_tr_data[tr_idx], split_tr_data[tv_idx]
                 split_tr_labels, split_tv_labels = tmp_tr_labels[:,
-                                                                tr_idx], tmp_true_labels[:, tv_idx]
+                                                                tr_idx], tmp_tr_labels[:, tv_idx]
 
                 # 测试PreKNN
                 pre_knn = PreKNN(split_tr_labels, split_tv_data, split_tv_labels)

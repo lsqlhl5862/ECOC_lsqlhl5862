@@ -89,13 +89,36 @@ class PreKNN:
         count = 0
         for i in range(pre_data.shape[0]):
             max_idx1 = np.argmax(pre_label_matrix[:, i])
-            max_idx2 = np.argmax(true_labels[:, i])
-            if max_idx1 == max_idx2:
+            max_idx2 = np.where(true_labels[:, i]==1)
+            if np.argwhere((max_idx2==max_idx1)==True).shape[0]!=0:
                 count = count+1
         knn_accuracy = count / pre_data.shape[0]
 
         return pre_label_matrix, knn_accuracy, pre_knn_perfomance_matrix
 
+    def getWeight(self,knn_matrix,ecoc_matrix):
+        weight=1
+        decline=0.05
+        decline_rate=0.02
+        tmp_accuracy=0
+        acc_list=np.zeros(int(weight/decline))
+        i=0
+        while(weight>=0):
+            count=0
+            pre_label_matrix=knn_matrix*(1-weight)+ecoc_matrix*weight
+            for i in range(pre_label_matrix.shape[1]):
+                max_idx1 = np.argmax(pre_label_matrix[:, i])
+                max_idx2 = np.where(self.tv_labels[:, i]==1)
+                if np.argwhere((max_idx2==max_idx1)==True).shape[0]!=0:
+                    count = count+1
+            accuracy=count / pre_label_matrix.shape[1]
+            if(tmp_accuracy-accuracy>tmp_accuracy*0.05):
+                break
+            acc_list[i]=accuracy
+            i+=1
+            tmp_accuracy=accuracy
+        return 1-np.argmax(acc_list)*0.05
+        
     def getValidationData(self):
         return self.tv_data, self.tv_labels
 
@@ -112,7 +135,7 @@ class PLFeatureSelection:
         self.tv_data = tv_data
         self.tv_labels = tv_labels
         self.params = params
-        self.decline_rate = 0.005
+        self.decline_rate = 0.02
 
     def matrix_test(self, matrix, tmp_tr_pos_idx, tmp_tr_neg_idx):
         f1_score_list = []
@@ -167,6 +190,22 @@ class PLFeatureSelection:
         # acc_list = np.zeros((self.num_features, 4))
         # fs_model = BSSWSS(k=self.num_features)  # remain 2 features.
         # fs_model.fit(data, labels)
+
+        #.632自助法
+        data=np.vstack((data,tv_inst))
+        labels=np.hstack((labels,tv_labels))
+        bootstrapping = []
+        bootstrapping_flag=np.zeros(data.shape[0])
+        for i in range(data.shape[0]):
+            bootstrapping.append(np.floor(np.random.random()*data.shape[0]))
+            bootstrapping_flag[int(bootstrapping[i])]=1
+        tv_data_index=np.where(bootstrapping_flag==0)[0].tolist()
+        tv_inst=data[tv_data_index]
+        tv_labels=labels[tv_data_index]
+        bootstrapping=np.int8(np.array(bootstrapping))
+        data=data[bootstrapping]
+        labels=labels[bootstrapping]
+
         prob = svm_problem(labels.tolist(),
                            data.tolist())
         param = svm_parameter(self.params.get('svm_param'))
@@ -174,7 +213,7 @@ class PLFeatureSelection:
         tmp_tv_inst = tv_inst
         p1, p2, p3 = svm_predict(
             tv_labels, tmp_tv_inst.tolist(), model)
-
+        
         accuracy = p2[0]
         precision = metrics.precision_score(tv_labels, p1)
         recall = metrics.recall_score(tv_labels, p1)
@@ -269,6 +308,22 @@ class PLFeatureSelection:
         tv_inst = np.vstack((pos_inst, neg_inst))
         tv_labels = np.hstack(
             (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
+        
+        #.632自助法
+        data=np.vstack((data,tv_inst))
+        labels=np.hstack((labels,tv_labels))
+        bootstrapping = []
+        bootstrapping_flag=np.zeros(data.shape[0])
+        for i in range(data.shape[0]):
+            bootstrapping.append(np.floor(np.random.random()*data.shape[0]))
+            bootstrapping_flag[int(bootstrapping[i])]=1
+        tv_data_index=np.where(bootstrapping_flag==0)[0].tolist()
+        tv_inst=data[tv_data_index]
+        tv_labels=labels[tv_data_index]
+        bootstrapping=np.int8(np.array(bootstrapping))
+        data=data[bootstrapping]
+        labels=labels[bootstrapping]
+
 
         acc_list = np.zeros((self.num_features, 4))
         tmp_f1_score = 0

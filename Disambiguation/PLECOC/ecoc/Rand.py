@@ -362,9 +362,10 @@ class RandPLECOC(BasePLECOC):
         print(knn_accuracy)
 
         tv_data,tv_labels=pre_knn.getValidationData()
-        _,tv_knn_accuracy,_=pre_knn.predict(tv_data,tv_labels)
-        tv_base_accuracy=self.fs_base_predict(tv_data,tv_labels)
-        output_1_value = output_value*(tv_base_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)+pre_knn_matrix*(tv_knn_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)
+        _,tv_knn_accuracy,knn_matrix=pre_knn.predict(tv_data,tv_labels)
+        ecoc_matrix=self.fs_base_predict(tv_data,tv_labels)
+        weight=pre_knn.getWeight(knn_matrix,ecoc_matrix)
+        output_1_value = output_value*weight+tv_base_accuracy*(1-weight)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_1_value[:, i] == max(output_1_value[:, i])
@@ -457,7 +458,7 @@ class RandPLECOC(BasePLECOC):
                 count = count+1
         base_accuracy = count / ts_data.shape[0]
 
-        return round(base_accuracy, 4)
+        return pre_label_matrix
 
     def repredict(self, ts_data):
         bin_pre = None
@@ -612,7 +613,7 @@ class RandPLECOC(BasePLECOC):
                 count = count+1
         base_accuracy = count / ts_data.shape[0]
 
-        return base_accuracy
+        return pre_label_matrix
 
     def base_predict(self, ts_data,ts_labels,pre_knn):
         bin_pre = None
@@ -662,9 +663,10 @@ class RandPLECOC(BasePLECOC):
         _,_,pre_knn_matrix=pre_knn.predict(ts_data,ts_labels)
 
         tv_data,tv_labels=pre_knn.getValidationData()
-        _,tv_knn_accuracy,_=pre_knn.predict(tv_data,tv_labels)
-        tv_base_accuracy=self.base_validation_predict(tv_data,tv_labels)
-        output_1_value = output_value*(tv_base_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)+pre_knn_matrix*(tv_knn_accuracy**3)/(tv_knn_accuracy**3+tv_base_accuracy**3)
+        _,tv_knn_accuracy,knn_matrix=pre_knn.predict(tv_data,tv_labels)
+        ecoc_matrix=self.base_validation_predict(tv_data,tv_labels)
+        weight=pre_knn.getWeight(knn_matrix,ecoc_matrix)
+        output_1_value = output_value*weight+knn_matrix*(1-weight)
         pre_label_matrix = np.zeros((self.num_class, ts_data.shape[0]))
         for i in range(ts_data.shape[0]):
             idx = output_1_value[:, i] == max(output_1_value[:, i])
