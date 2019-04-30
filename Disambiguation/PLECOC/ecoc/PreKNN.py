@@ -101,8 +101,8 @@ class PreKNN:
         decline=0.05
         decline_rate=0.02
         tmp_accuracy=0
-        acc_list=np.zeros(int(weight/decline))
-        i=0
+        acc_list=np.zeros(int(weight/decline)+1)
+        index=0
         while(weight>=0):
             count=0
             pre_label_matrix=knn_matrix*(1-weight)+ecoc_matrix*weight
@@ -112,10 +112,11 @@ class PreKNN:
                 if np.argwhere((max_idx2==max_idx1)==True).shape[0]!=0:
                     count = count+1
             accuracy=count / pre_label_matrix.shape[1]
-            if(tmp_accuracy-accuracy>tmp_accuracy*0.05):
+            if(tmp_accuracy-accuracy>tmp_accuracy*decline_rate):
                 break
-            acc_list[i]=accuracy
-            i+=1
+            acc_list[index]=accuracy
+            index+=1
+            weight-=decline
             tmp_accuracy=accuracy
         return 1-np.argmax(acc_list)*0.05
         
