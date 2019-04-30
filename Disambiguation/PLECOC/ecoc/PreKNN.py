@@ -126,7 +126,7 @@ class PLFeatureSelection:
         mean_f1_score=f1_score_list.mean()
         high_score_list=np.where(f1_score_list>mean_f1_score)
         return high_score_list[0]
-    # def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
+    def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -194,7 +194,8 @@ class PLFeatureSelection:
         # fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
         # fs_model.fit(data, labels)
         return f1_score
-    def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
+
+    # def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -235,7 +236,7 @@ class PLFeatureSelection:
         dc = get_data_complexity('F1')
         return dc.score(data, labels)
 
-    # def fit(self, data, labels, coding_col):
+    def fit(self, data, labels, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
@@ -303,7 +304,8 @@ class PLFeatureSelection:
         fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
         fs_model.fit(data, labels)
         return fs_model
-    def fit(self, data, labels, coding_col):
+    
+    # def fit(self, data, labels, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
         #     temp_labels=np.where(labels[i,:]==1)[0]
