@@ -11,6 +11,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn import preprocessing
 from matplotlib import pyplot as plt
 from ecoc.PreKNN import PreKNN
+import seaborn as sns
 
 
 def read_mat(filepath, tr_key='train_data', tr_label_key='train_p_target',
@@ -52,7 +53,7 @@ def run_birdsong():
     i = 0
     name = 'pl'
     # mat_list=["MSRCv2","lost","BirdSong"]
-    mat_list = ["MSRCv2", ]
+    mat_list = ["BirdSong", ]
     skf = StratifiedKFold(n_splits=10)
     for item in mat_list:
         accuracies = None
@@ -71,7 +72,8 @@ def run_birdsong():
         true_labels = true_labels.astype(np.int)
         tr_data = preprocessing.MinMaxScaler().fit_transform(tr_data)
         tr_data = preprocessing.StandardScaler().fit_transform(tr_data)
-
+        
+        draw_hist_simple(true_labels)
         # K折交叉验证
 
         X = tr_data
@@ -104,7 +106,9 @@ def run_birdsong():
 
                 # pre_label_matrix,base_accuracy,knn_accuracy,com_accuracy = pl_ecoc.predict(
                 #     split_ts_data, split_ts_labels,pre_knn)
-
+                # pl_ecoc.exl_4_1(
+                #     split_tr_data, split_tr_labels, split_ts_data, split_ts_labels, split_tv_data, split_tv_labels, pre_knn)
+                
                 result = pl_ecoc.fit_predict(
                     split_tr_data, split_tr_labels, split_ts_data, split_ts_labels, split_tv_data, split_tv_labels, pre_knn)
                 result = np.array(result).T
@@ -162,6 +166,29 @@ def draw_hist(file_name, myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
     plt.savefig("pictures/"+file_name+".png")
     # plt.show()
 
+def draw_hist_simple(true_labels):
+    X=np.array(range(true_labels.shape[0]))
+    Y=np.zeros(true_labels.shape[0])
+    for i in range(true_labels.shape[0]):
+        Y[i]=np.where(true_labels[i,:]==1)[0].shape[0]
+    Y=np.int32(Y)
+    # data=np.vstack((X,Y))
+    plt.figure()
+    # name_list.reverse()
+    rects = plt.bar(range(len(X)), Y)
+    # X轴标题
+    index = list(range(len(X)))
+    # index = [float(c)+0.4 for c in range(len(myList))]
+    # plt.ylim(ymax=Ymax, ymin=Ymin)
+    plt.xticks(index, index)
+    plt.ylabel("")  # X轴标签
+    plt.xlabel("label")
+    for rect in rects:
+        height = rect.get_height()
+        plt.text(rect.get_x() + rect.get_width() / 2, height,
+                 str(height), ha='center', va='bottom')
+    # plt.hist(data)
+    plt.show()
 
 if __name__ == '__main__':
     # run_sample()

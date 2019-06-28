@@ -7,7 +7,7 @@ from sklearn.svm import libsvm
 from svmutil import *
 import sklearn.metrics as metrics
 from DataComplexity.datacomplexity import get_data_complexity
-
+from matplotlib import pyplot as plt
 
 
 class PreKNN:
@@ -112,12 +112,14 @@ class PreKNN:
                 if np.argwhere((max_idx2==max_idx1)==True).shape[0]!=0:
                     count = count+1
             accuracy=count / pre_label_matrix.shape[1]
-            if(tmp_accuracy-accuracy>tmp_accuracy*decline_rate):
-                break
+            # if(tmp_accuracy-accuracy>tmp_accuracy*decline_rate):
+            #     break
             acc_list[index]=accuracy
             index+=1
             weight-=decline
             tmp_accuracy=accuracy
+        acc_list=acc_list.tolist()
+        draw_hist(acc_list," ","times","accuracy",0,len(acc_list),0,1)
         return 1-np.argmax(acc_list)*0.05
         
     def getValidationData(self):
@@ -234,7 +236,103 @@ class PLFeatureSelection:
         # fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
         # fs_model.fit(data, labels)
         return f1_score
+    def matrix_test_4_1(self, matrix, tmp_tr_pos_idx, tmp_tr_neg_idx):
+        f1_score_list = []
+        acc_list=[]
+        matrix=matrix.T
+        for i in range(matrix.shape[0]):
+            tmp_col = matrix[i, :]
+            tr_pos_idx = tmp_tr_pos_idx[i]
+            tr_neg_idx = tmp_tr_neg_idx[i]
+            col_f1_score, col_acc= self.col_test_4_1(tr_pos_idx, tr_neg_idx, tmp_col)
+            f1_score_list.append(col_f1_score/100)
+            acc_list.append(col_acc)
+        return f1_score_list,acc_list
+        
+    def col_test_4_1(self, tr_pos_idx, tr_neg_idx, coding_col):
+        # coding_col=self.coding_col.tolist()
+        # for i in range(data.shape[0]):
+        #     temp_labels=np.where(labels[i,:]==1)[0]
+        #     num_pos=0
+        #     num_neg=0
+        #     for class_index in temp_labels:
+        #         if(coding_col[class_index]==1):
+        #             num_pos+=1
+        #         elif(coding_col[class_index]==-1):
+        #             num_neg+=1
+        #     print(num_pos)
+        tv_pos_idx = []
+        tv_neg_idx = []
+        tv_data_flag = np.zeros(self.tv_data.shape[0])
+        coding_col[np.where(coding_col == -1)[0]] = 0
+        #     print(num_neg)
+        for j in range(self.tv_data.shape[0]):
+            if np.all((self.tv_labels[:, j] & coding_col) == self.tv_labels[:, j]):
+                tv_pos_idx.append(j)
+                tv_data_flag[j] += 1
+            else:
+                if np.all((self.tv_labels[:, j] & np.int8(np.logical_not(coding_col))) == self.tv_labels[:, j]):
+                    tv_neg_idx.append(j)
+                    tv_data_flag[j] += 1
+        # print(len(np.where(tv_data_flag == 0)[0]))
+        pos_inst = self.tv_data[tv_pos_idx]
+        neg_inst = self.tv_data[tv_neg_idx]
+        tv_inst = np.vstack((pos_inst, neg_inst))
+        tv_labels = np.hstack(
+            (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
 
+        tr_pos_inst = self.tr_data[tr_pos_idx]
+        tr_neg_inst = self.tr_data[tr_neg_idx]
+        data = np.vstack((tr_pos_inst, tr_neg_inst))
+        labels = np.hstack(
+            (np.ones(len(tr_pos_inst)), -np.ones(len(tr_neg_inst))))
+
+        # acc_list = np.zeros((self.num_features, 4))
+        # fs_model = BSSWSS(k=self.num_features)  # remain 2 features.
+        # fs_model.fit(data, labels)
+
+        #.632自助法
+        data=np.vstack((data,tv_inst))
+        labels=np.hstack((labels,tv_labels))
+        bootstrapping = []
+        bootstrapping_flag=np.zeros(data.shape[0])
+        for i in range(data.shape[0]):
+            bootstrapping.append(np.floor(np.random.random()*data.shape[0]))
+            bootstrapping_flag[int(bootstrapping[i])]=1
+        tv_data_index=np.where(bootstrapping_flag==0)[0].tolist()
+        tv_inst=data[tv_data_index]
+        tv_labels=labels[tv_data_index]
+        bootstrapping=np.int8(np.array(bootstrapping))
+        data=data[bootstrapping]
+        labels=labels[bootstrapping]
+
+        prob = svm_problem(labels.tolist(),
+                           data.tolist())
+        param = svm_parameter(self.params.get('svm_param'))
+        model = svm_train(prob, param)
+        tmp_tv_inst = tv_inst
+        p1, p2, p3 = svm_predict(
+            tv_labels, tmp_tv_inst.tolist(), model)
+        
+        accuracy = p2[0]
+        precision = metrics.precision_score(tv_labels, p1)
+        recall = metrics.recall_score(tv_labels, p1)
+        f1_score = metrics.f1_score(tv_labels, p1)
+        # acc_list[i][0] = accuracy
+        # acc_list[i][1] = precision
+        # acc_list[i][2] = recall
+        # acc_list[i][3] = f1_score
+        # if(tmp_f1_score-f1_score>tmp_f1_score*self.decline_rate):
+        #     break
+        # else:
+        #     tmp_f1_score=f1_score
+        # print(str(np.argmax(acc_list[:, 0]))+"："+str(acc_list[:, 0].max()))
+        # print(str(np.argmax(acc_list[:, 1]))+"："+str(acc_list[:, 1].max()))
+        # print(str(np.argmax(acc_list[:, 2]))+"："+str(acc_list[:, 2].max()))
+        # print(str(np.argmax(acc_list[:, 3]))+"："+str(acc_list[:, 3].max()))
+        # fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
+        # fs_model.fit(data, labels)
+        return accuracy,f1_score
     # def col_test(self, tr_pos_idx, tr_neg_idx, coding_col):
         # coding_col=self.coding_col.tolist()
         # for i in range(data.shape[0]):
@@ -349,111 +447,39 @@ class PLFeatureSelection:
             acc_list[i][1] = precision
             acc_list[i][2] = recall
             acc_list[i][3] = f1_score
-            if(tmp_f1_score-f1_score > tmp_f1_score*self.decline_rate):
-                break
-            else:
-                tmp_f1_score = f1_score
+            # if(tmp_f1_score-f1_score > tmp_f1_score*self.decline_rate):
+            #     break
+            # else:
+            #     tmp_f1_score = f1_score
+            tmp_f1_score = f1_score
         print(str(np.argmax(acc_list[:, 0]))+"："+str(acc_list[:, 0].max()))
         print(str(np.argmax(acc_list[:, 1]))+"："+str(acc_list[:, 1].max()))
         print(str(np.argmax(acc_list[:, 2]))+"："+str(acc_list[:, 2].max()))
         print(str(np.argmax(acc_list[:, 3]))+"："+str(acc_list[:, 3].max()))
+        # f1_list=acc_list[:, 3].T.tolist()
+        # draw_hist(f1_list," ","k","f1-score",0,len(f1_list),0,1)
         fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:, 3]))
         fs_model.fit(data, labels)
         return fs_model
     
-    # def fit(self, data, labels, coding_col):
-        # coding_col=self.coding_col.tolist()
-        # for i in range(data.shape[0]):
-        #     temp_labels=np.where(labels[i,:]==1)[0]
-        #     num_pos=0
-        #     num_neg=0
-        #     for class_index in temp_labels:
-        #         if(coding_col[class_index]==1):
-        #             num_pos+=1
-        #         elif(coding_col[class_index]==-1):
-        #             num_neg+=1
-        #     print(num_pos)
-        tv_data = self.tv_data.copy()
-        tv_labels = self.tv_labels.copy()
-        tv_pos_idx = []
-        tv_neg_idx = []
-        tv_data_flag = np.zeros(tv_data.shape[0])
-        coding_col[np.where(coding_col == -1)[0]] = 0
-        #     print(num_neg)
-        for j in range(tv_data.shape[0]):
-            if np.all((tv_labels[:, j] & coding_col) == tv_labels[:, j]):
-                tv_pos_idx.append(j)
-                tv_data_flag[j] += 1
-            else:
-                if np.all((tv_labels[:, j] & np.int8(np.logical_not(coding_col))) == tv_labels[:, j]):
-                    tv_neg_idx.append(j)
-                    tv_data_flag[j] += 1
-        print(len(np.where(tv_data_flag == 0)[0]))
-        pos_inst = tv_data[tv_pos_idx]
-        neg_inst = tv_data[tv_neg_idx]
-        tv_inst = np.vstack((pos_inst, neg_inst))
-        tv_labels = np.hstack(
-            (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
-
-        acc_list = np.zeros((self.num_features, 1))
-        tmp_f1_score = 0
-
-        for i in range(self.num_features):
-            fs_model = BSSWSS(k=self.num_features-i)  # remain 2 features.
-            fs_model.fit(data, labels)
-           
-            dc = get_data_complexity('F3')
-            f1_score=dc.score(fs_model.transform(data), labels)
-
-            acc_list[i] = f1_score
-            if(tmp_f1_score-f1_score > tmp_f1_score*self.decline_rate):
-                break
-            else:
-                tmp_f1_score = f1_score
-        fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:]))
-        fs_model.fit(data, labels)
-        return fs_model
-
-    # def fit(self, data, labels, tv_data, tv_labels, coding_col, params):
-        # coding_col=self.coding_col.tolist()
-        # for i in range(data.shape[0]):
-        #     temp_labels=np.where(labels[i,:]==1)[0]
-        #     num_pos=0
-        #     num_neg=0
-        #     for class_index in temp_labels:
-        #         if(coding_col[class_index]==1):
-        #             num_pos+=1
-        #         elif(coding_col[class_index]==-1):
-        #             num_neg+=1
-        #     print(num_pos)
-        tv_pos_idx = []
-        tv_neg_idx = []
-        tv_data_flag = np.zeros(tv_data.shape[0])
-        coding_col[np.where(coding_col == -1)[0]] = 0
-        #     print(num_neg)
-        for j in range(tv_data.shape[0]):
-            if np.all((tv_labels[:, j] & coding_col) == tv_labels[:, j]):
-                tv_pos_idx.append(j)
-                tv_data_flag[j] += 1
-            else:
-                if np.all((tv_labels[:, j] & np.int8(np.logical_not(coding_col))) == tv_labels[:, j]):
-                    tv_neg_idx.append(j)
-                    tv_data_flag[j] += 1
-        print(len(np.where(tv_data_flag == 0)[0]))
-        pos_inst = tv_data[tv_pos_idx]
-        neg_inst = tv_data[tv_neg_idx]
-        tv_inst = np.vstack((pos_inst, neg_inst))
-        tv_labels = np.hstack(
-            (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
-
-        acc_list = np.zeros((self.num_features, 4))
-        for i in range(self.num_features):
-            fs_model = BSSWSS(k=self.num_features-i)  # remain 2 features.
-            fs_model.fit(data, labels)
-            dc = get_data_complexity('N3')
-            acc_list[i]=dc.score(data, labels)
-        self.fs_model = BSSWSS(k=self.num_features-np.argmax(acc_list[:]))
-        self.fs_model.fit(data, labels)
-
     def transform(self, data):
         return self.fs_model.transform(data)
+
+def draw_hist(myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
+    name_list = list(range(len(myList)))
+    plt.figure()
+    # name_list.reverse()
+    rects = plt.plot(myList)
+    # X轴标题
+    index = list(range(len(myList)))
+    # index = [float(c)+0.4 for c in range(len(myList))]
+    plt.ylim(ymax=Ymax, ymin=Ymin)
+    plt.xticks(index, name_list)
+    plt.ylabel(Ylabel)  # X轴标签
+    plt.xlabel(Xlabel)
+    # for rect in rects:
+    #     height = rect.get_height()
+    #     plt.text(rect.get_x() + rect.get_width() / 2, height,
+    #              str(height), ha='center', va='bottom')
+    plt.title(Title)
+    plt.show()

@@ -121,6 +121,7 @@ class RandPLECOC(BasePLECOC):
         counter = 0
         tr_pos_idx = []
         tr_neg_idx = []
+        tr_data_flag=np.zeros(num_tr)
         # complexityList=[]
 
         # test code start
@@ -145,20 +146,17 @@ class RandPLECOC(BasePLECOC):
             num_neg = len(tmp_neg_idx)
 
             if (num_pos+num_neg >= self.min_num_tr) and (num_pos >= 5) and (num_neg >= 5):
+                print(num_pos+num_neg)
                 counter = counter + 1
                 tr_pos_idx.append(tmp_pos_idx)
                 tr_neg_idx.append(tmp_neg_idx)
+                for item in tmp_pos_idx:
+                    tr_data_flag[item]=1
+                for item in tmp_neg_idx:
+                    tr_data_flag[item]=1
                 coding_matrix = tmpcode if coding_matrix is None else np.vstack(
                     (coding_matrix, tmpcode))
-                # # 复杂度统计
-                # pos_inst = tr_data[tmp_pos_idx]
-                # neg_inst = tr_data[tmp_neg_idx]
-                # temp_tr_inst = np.vstack((pos_inst, neg_inst))
-                # temp_tr_labels = np.hstack(
-                #     (np.ones(len(pos_inst)), -np.ones(len(neg_inst))))
-                # temp = getDataComplexitybyCol(temp_tr_inst, temp_tr_labels)
-                # self.complexityList.append(temp)
-            
+                
             if counter == self.codingLength:
                 break
 
@@ -171,6 +169,8 @@ class RandPLECOC(BasePLECOC):
         # dump_matrix = pd.DataFrame(coding_matrix.T)
         # dump_matrix.to_csv(csv_path, index=False, header=False)
         coding_matrix = (coding_matrix * 2 - 1).T
+        
+        
         return coding_matrix, tr_pos_idx, tr_neg_idx
 
     def create_fs_base_models(self, tr_data, tr_pos_idx, tr_neg_idx, num_feature,tv_data,tv_labels):
@@ -278,17 +278,17 @@ class RandPLECOC(BasePLECOC):
         temp = []
         self.base_models = self.create_base_models(
             tr_data, tr_pos_idx, tr_neg_idx)
-        self.models = self.create_fs_base_models(
-            tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1],tv_data,tv_labels)
-        self.base_performance_matrix = self.create_performance_matrix(
+        # self.models = self.create_fs_base_models(
+        #     tr_data, tr_pos_idx, tr_neg_idx, tr_data.shape[1],tv_data,tv_labels)
+        self.base_performance_matrix = self.create_base_performance_matrix(
             tr_data, tr_labels)
-        self.performance_matrix = self.create_performance_matrix(
-            tr_data, tr_labels)
-        print(self.performance_matrix.shape)
+        # self.performance_matrix = self.create_performance_matrix(
+        #     tr_data, tr_labels)
+        # print(self.performance_matrix.shape)
         matrix, base_accuracy,base_com_1_accuracy = self.base_predict(
             ts_data, ts_labels,pre_knn)
-        matrix, base_fs_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
-            ts_data, ts_labels, pre_knn)
+        # matrix, base_fs_accuracy, knn_accuracy, com_1_accuracy, com_2_accuracy = self.predict(
+        #     ts_data, ts_labels, pre_knn)
         temp.append(base_accuracy),
         temp.append(base_com_1_accuracy)
         temp.append(base_fs_accuracy) 
@@ -682,3 +682,68 @@ class RandPLECOC(BasePLECOC):
         print(com_1_accuracy)
 
         return pre_label_matrix,round(base_accuracy, 4),round(com_1_accuracy, 4)
+
+    def pic_4_1(self, tr_data, tr_labels, ts_data, ts_labels,tv_data,tv_labels, pre_knn):
+        self.plfs = PLFeatureSelection(tr_data,tr_labels,tv_data,tv_labels,self.params)
+        coding_matrix, tr_pos_idx, tr_neg_idx = self.create_integrity_coding_matrix(
+            tr_data, tr_labels)
+        # self.coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
+        #     tr_data, tr_labels)
+        
+        # repeat=int(tr_data.shape[1]/3)
+        # if(repeat>15):
+        #     repeat=15
+        f1_list_1,acc_list_1=self.plfs.matrix_test_4_1(coding_matrix,tr_pos_idx,tr_neg_idx)
+
+        coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
+            tr_data, tr_labels)
+        
+        f1_list_2,acc_list_2=self.plfs.matrix_test_4_1(coding_matrix,tr_pos_idx,tr_neg_idx)
+        myList=[]
+        myList.append(f1_list_2)
+        myList.append(f1_list_1)
+        draw_hist_4_1(myList," ","Col","f1-score",0,len(f1_list_1),0,1)
+        myList=[]
+        myList.append(acc_list_2)
+        myList.append(acc_list_1)
+        draw_hist_4_1(myList," ","Col","accuracy",0,len(f1_list_1),0,1)
+    def exl_4_1(self, tr_data, tr_labels, ts_data, ts_labels,tv_data,tv_labels, pre_knn):
+        self.plfs = PLFeatureSelection(tr_data,tr_labels,tv_data,tv_labels,self.params)
+       
+        for i in range(10):
+            coding_matrix, tr_pos_idx, tr_neg_idx = self.create_coding_matrix(
+            tr_data, tr_labels)
+        
+ 
+def draw_hist_4_1(myList, Title, Xlabel, Ylabel, Xmin, Xmax, Ymin, Ymax):
+    name_list = list(range(len(myList[0])))
+    plt.figure()
+    # name_list.reverse()
+    total_width, n = 0.8, 2  
+    width = total_width / n 
+    x=list(range(len(myList[0])))
+    rects1 = plt.bar(x, myList[0],label='PL-ECOC',width=width, fc = 'y')
+    for i in range(len(x)):  
+        x[i] = x[i] + width  
+    rects2 = plt.bar(x, myList[1],label='PL-ECOC-1',width=width, fc = 'r')
+    # X轴标题
+    index = list(range(len(myList[0])))
+    # index = [float(c)+0.4 for c in range(len(myList))]
+    plt.ylim(ymax=Ymax, ymin=Ymin)
+    plt.xticks(index, name_list)
+    plt.ylabel(Ylabel)  # X轴标签
+    plt.xlabel(Xlabel)
+    # for rect in rects1:
+    #     height = rect.get_height()
+    #     plt.text(rect.get_x() + rect.get_width() / 2, height,
+    #              str(height), ha='center', va='bottom')
+    # for rect in rects2:
+    #     height = rect.get_height()
+    #     plt.text(rect.get_x() + rect.get_width() / 2, height,
+    #              str(height), ha='center', va='bottom')             
+    plt.title(Title)
+    plt.legend()
+    # plt.savefig("pictures/"+file_name+".png")
+    plt.show()
+
+    
